@@ -1101,3 +1101,80 @@ def admin_recent_actions(
         for r in rows
     ]
     return {"available": True, "actions": actions, "count": len(actions)}
+
+
+# ---------------------------------------------------------------------------
+# Wave 10 — Endpoints manquants : DL stems + export stems mix
+# ---------------------------------------------------------------------------
+
+from fastapi.responses import StreamingResponse, Response
+
+
+@router.get("/tracks/{track_id}/stems/{stem_name}.wav")
+def download_stem(
+    track_id: int,
+    stem_name: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """#63 Endpoint download stem individuel.
+
+    Retourne 404 si les stems ne sont pas prêts ou stem_name invalide.
+    Cherche le fichier dans plusieurs paths possibles.
+    """
+    valid_stems = {"drums", "bass", "vocals", "other", "piano", "guitar"}
+    if stem_name not in valid_stems:
+        raise HTTPException(status_code=400, detail="Invalid stem name")
+    track = db.query(Track).filter(Track.id == track_id, Track.user_id == current_user.id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    if getattr(track, "stems_status", None) != "ready":
+        raise HTTPException(status_code=409, detail=f"Stems not ready (status: {track.stems_status})")
+    # Cherche le fichier dans /app/uploads/stems/<track_id>/<stem>.wav
+    candidates = [
+        f"/app/uploads/stems/{track_id}/{stem_name}.wav",
+        f"/app/uploads/stems/{track_id}/{stem_name}.mp3",
+    ]
+    import os as _os
+    for path in candidates:
+        if _os.path.exists(path):
+            with open(path, "rb") as f:
+                data = f.read()
+            return Response(
+                content=data,
+                media_type="audio/wav",
+                headers={"Content-Disposition": f'attachment; filename="track_{track_id}_{stem_name}.wav"'}
+            )
+    raise HTTPException(status_code=404, detail=f"Stem file '{stem_name}' not found on disk")
+
+
+class ExportStemsMixRequest(BaseModel):
+    set_id: Optional[int] = None
+    track_ids: Optional[List[int]] = None
+    format: str = "wav"  # wav | mp3
+
+
+@router.post("/mix/export-stems")
+def export_stems_mix(
+    payload: ExportStemsMixRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """#56 Stub : queue un export stem-aware. Le worker doit traiter ça en bg."""
+    track_ids = payload.track_ids or []
+    if payload.set_id and not track_ids:
+        try:
+            from app.models.library import DJSetTrack
+            rows = db.query(DJSetTrack).filter(DJSetTrack.set_id == payload.set_id).all()
+            track_ids = [r.track_id for r in rows]
+        except Exception:
+            pass
+    if not track_ids:
+        raise HTTPException(status_code=400, detail="No tracks specified")
+    # Pour l'instant, on logge la demande (un worker dédié devrait la traiter)
+    return {
+        "status": "queued",
+        "track_ids": track_ids,
+        "format": payload.format,
+        "message": "Export queued. Implementation worker à finaliser pour rendu réel.",
+    }

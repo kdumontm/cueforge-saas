@@ -1748,7 +1748,7 @@
     if(document.getElementById('cf-similar-btn')) return;
     var trackId = (new URLSearchParams(location.search)).get('id');
     if(!trackId) return;
-    var insp = document.querySelector('.inspector, [data-inspector], aside');
+    var insp = document.querySelector('aside.inspector, .inspector, [data-inspector]') || document.querySelector('aside:not(.rail)');
     if(!insp) return;
     var btn = document.createElement('button');
     btn.id = 'cf-similar-btn';
@@ -1779,7 +1779,7 @@
     if(document.getElementById('cf-copy-cues-btn')) return;
     var trackId = (new URLSearchParams(location.search)).get('id');
     if(!trackId) return;
-    var transport = document.querySelector('.transport, .tr-btns')?.parentElement;
+    var transport = document.querySelector('.tr-btns')?.parentElement || document.querySelector('.transport');
     if(!transport) return;
     var btn = document.createElement('button');
     btn.id = 'cf-copy-cues-btn';
@@ -1831,27 +1831,34 @@
   }
   setTimeout(bindDrillDown, 1500);
 
-  // Tag library rows pour drag reorder + bind
+  // Tag library rows pour drag reorder + bind (avec MutationObserver pour les rows lazy-loaded)
   if(/library/.test(location.pathname)){
-    setTimeout(function(){
-      // Tag rows existantes
+    function tagLibRows(){
       document.querySelectorAll('.lib-row[data-id]').forEach(function(row){
         if(!row.hasAttribute('data-cf-reorderable')){
           row.setAttribute('data-cf-reorderable','1');
+          row.draggable = true;
         }
       });
-      // Bind global au container
+    }
+    function bindLibDrag(){
       var lib = document.querySelector('.lib');
-      if(lib){
-        try{ CF.bindDragReorder(lib, {
-          onReorder: function(order){
-            // Persiste l'ordre custom dans localStorage
-            try{ localStorage.setItem('cf_lib_order', JSON.stringify(order)); }catch(e){}
-            if(CF.toastGroup) CF.toastGroup.push('Ordre sauvegardé localement','info');
-          }
-        }); }catch(e){}
-      }
-    }, 1500);
+      if(!lib || lib._cfBound) return;
+      lib._cfBound = true;
+      try{ CF.bindDragReorder(lib, {
+        onReorder: function(order){
+          try{ localStorage.setItem('cf_lib_order', JSON.stringify(order)); }catch(e){}
+          if(CF.toastGroup) CF.toastGroup.push('Ordre sauvegardé localement','info');
+        }
+      }); }catch(e){}
+    }
+    setTimeout(function(){ tagLibRows(); bindLibDrag(); }, 800);
+    // MutationObserver pour les rows ajoutées async
+    var libBody = document.querySelector('.lib') || document.body;
+    var mo = new MutationObserver(function(){ tagLibRows(); bindLibDrag(); });
+    mo.observe(libBody, {childList:true, subtree:true});
+    // Stop observer après 30s pour éviter cost long-run
+    setTimeout(function(){ mo.disconnect(); }, 30000);
   }
 })();
 
@@ -2028,7 +2035,7 @@
   CF.injectStemDownloads = function(){
     if(!/analyze/.test(location.pathname)) return;
     if(document.getElementById('cf-stem-dl')) return;
-    var insp = document.querySelector('.inspector, [data-inspector], aside');
+    var insp = document.querySelector('aside.inspector, .inspector, [data-inspector]') || document.querySelector('aside:not(.rail)');
     if(!insp) return;
     var trackId = (new URLSearchParams(location.search)).get('id');
     if(!trackId) return;
@@ -2072,7 +2079,7 @@
     var trackId = (new URLSearchParams(location.search)).get('id');
     if(!trackId) return;
 
-    var insp = document.querySelector('.inspector, [data-inspector], aside');
+    var insp = document.querySelector('aside.inspector, .inspector, [data-inspector]') || document.querySelector('aside:not(.rail)');
     if(!insp) return;
     var box = document.createElement('div');
     box.id = 'cf-energy-display';
@@ -2261,5 +2268,163 @@
     document.addEventListener('DOMContentLoaded', function(){ setTimeout(init8, 2000); });
   } else {
     setTimeout(init8, 2000);
+  }
+})();
+
+/* ============================================================
+   Wave 10 — Wirings réels end-to-end
+   ============================================================ */
+(function(){
+  if(!window.cfImprovements) return;
+  var CF = window.cfImprovements;
+
+  /* --- #40 Wire undo cues sur les vraies mutations + raccourci Cmd+Z --- */
+  CF.wireCueUndo = function(){
+    if(!/analyze/.test(location.pathname)) return;
+    // Snapshot l'état des cues à intervalle régulier (poll fallback)
+    function getCueState(){
+      try{
+        var cues = window.currentCues || window.cues || [];
+        return cues.map(function(c){return Object.assign({}, c)});
+      }catch(e){ return []; }
+    }
+    var lastSnapshot = null;
+    setInterval(function(){
+      var s = getCueState();
+      var sStr = JSON.stringify(s);
+      if(sStr !== lastSnapshot && s.length){
+        if(lastSnapshot !== null) CF.cueUndo.push(s);
+        lastSnapshot = sStr;
+      }
+    }, 1500);
+    // Cmd+Z pour undo
+    document.addEventListener('keydown', function(e){
+      if((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z' && !e.shiftKey){
+        if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        var prev = CF.cueUndo.undo();
+        if(prev){
+          e.preventDefault();
+          if(window.currentCues){ window.currentCues = prev; }
+          if(typeof window.renderCues === 'function') window.renderCues();
+          if(CF.toastGroup) CF.toastGroup.push('Undo cues','info');
+        }
+      } else if((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'z'){
+        var nxt = CF.cueUndo.redo();
+        if(nxt){
+          e.preventDefault();
+          if(window.currentCues){ window.currentCues = nxt; }
+          if(typeof window.renderCues === 'function') window.renderCues();
+          if(CF.toastGroup) CF.toastGroup.push('Redo cues','info');
+        }
+      }
+    });
+  };
+
+  /* --- #51 Wire EQ stems sur AudioContext si dispo --- */
+  CF.wireStemEQ = function(){
+    if(!/mix-studio/.test(location.pathname)) return;
+    var sliders = document.querySelectorAll('#cf-stem-eq input[data-eq-band]');
+    if(!sliders.length) return;
+    // Ajouter listener qui pilote AudioContext via stems players si disponible
+    sliders.forEach(function(slider){
+      slider.addEventListener('input', function(){
+        var stem = slider.dataset.eqStem;
+        var band = slider.dataset.eqBand;
+        var gainDB = parseFloat(slider.value);
+        // Tente de piloter via window.stemPlayers[stem].eq[band].gain.value
+        try{
+          if(window.stemPlayers && window.stemPlayers[stem] && window.stemPlayers[stem].eq){
+            window.stemPlayers[stem].eq[band].gain.value = gainDB;
+          }
+        }catch(e){}
+      });
+    });
+  };
+
+  /* --- #52 Wire lock tempo : tap sur deck B pour suivre A --- */
+  CF.wireLockTempo = function(){
+    if(!/mix-studio/.test(location.pathname)) return;
+    setInterval(function(){
+      if(!CF.ls.get('lock_tempo', false)) return;
+      try{
+        if(window.deckA && window.deckB && window.deckA.bpm && window.deckB.audio){
+          // Calcule le ratio pour matcher A
+          var ratio = window.deckA.bpm / (window.deckB.bpm || window.deckA.bpm);
+          if(window.deckB.audio.playbackRate){
+            window.deckB.audio.playbackRate = Math.max(0.5, Math.min(2, ratio));
+          }
+        }
+      }catch(e){}
+    }, 1000);
+  };
+
+  /* --- #54 Wire auto-mix application réelle des params --- */
+  CF.applyTransitionParams = function(markers){
+    // Pose les markers dans l'UI mix-studio si APIs dispo
+    try{
+      if(window.deckA && markers.out_a){
+        window.deckA.outPoint = markers.out_a;
+        if(window.deckA.audio) window.deckA.audio.currentTime = markers.out_a - 8;
+      }
+      if(window.deckB && markers.in_b){
+        window.deckB.inPoint = markers.in_b;
+      }
+      if(typeof window.renderTransitionParams === 'function') window.renderTransitionParams(markers);
+    }catch(e){}
+  };
+  // Expose globalement pour le bouton auto-mix
+  window.applyTransitionParams = window.applyTransitionParams || CF.applyTransitionParams;
+
+  /* --- #60 Bouton Preview 30s dans mix-studio --- */
+  CF.injectPreview30Btn = function(){
+    if(!/mix-studio/.test(location.pathname)) return;
+    if(document.getElementById('cf-preview-30s')) return;
+    var transport = document.querySelector('.transport, .mix-controls, .controls');
+    if(!transport) return;
+    var btn = document.createElement('button');
+    btn.id = 'cf-preview-30s';
+    btn.className = 'btn-sm';
+    btn.style.cssText = 'margin-left:8px;padding:6px 10px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-size:12px;cursor:pointer';
+    btn.innerHTML = '⏯ Preview 30s';
+    btn.title = 'Preview du mix avec fade in/out';
+    btn.addEventListener('click', function(){
+      var audio = (window.deckA && window.deckA.audio) || window.audioEl;
+      if(!audio){
+        if(CF.toastGroup) CF.toastGroup.push('Aucun audio chargé','warn');
+        return;
+      }
+      var startSec = (window.deckA && window.deckA.outPoint) ? Math.max(0, window.deckA.outPoint - 4) : 0;
+      CF.preview30s(audio, startSec);
+      if(CF.toastGroup) CF.toastGroup.push('Preview 30s lancée','info');
+    });
+    transport.appendChild(btn);
+  };
+
+  /* --- Re-injection inspector si manqué (analyze) --- */
+  CF.reinjectInspector = function(){
+    if(!/analyze/.test(location.pathname)) return;
+    // Forcer un nouveau passage pour mettre les boutons dans le bon parent
+    ['cf-similar-btn','cf-stem-dl','cf-energy-display','cf-notes-box'].forEach(function(id){
+      var el = document.getElementById(id);
+      if(!el) return;
+      var insp = document.querySelector('aside.inspector');
+      if(insp && el.parentElement !== insp){
+        insp.appendChild(el);
+      }
+    });
+  };
+
+  function initWave10(){
+    try{ CF.wireCueUndo(); }catch(e){}
+    try{ CF.wireStemEQ(); }catch(e){}
+    try{ CF.wireLockTempo(); }catch(e){}
+    try{ CF.injectPreview30Btn(); }catch(e){}
+    try{ CF.reinjectInspector(); }catch(e){}
+    setTimeout(function(){ try{ CF.reinjectInspector(); }catch(e){} }, 3500);
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(initWave10, 2200); });
+  } else {
+    setTimeout(initWave10, 2200);
   }
 })();
