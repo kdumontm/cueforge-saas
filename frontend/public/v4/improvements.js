@@ -658,13 +658,23 @@
   if(!window.cfImprovements) return;
   var CF = window.cfImprovements;
 
-  // Helper API call avec fallback silencieux
+  // Helper API call : prefer window.api (handle refresh tokens), fallback fetch
   function apiCall(method, path, body){
+    var m = method.toLowerCase();
+    if(window.api && typeof window.api[m] === 'function'){
+      // window.api signatures vary : get(path), post(path, body), patch(path, body), del(path)
+      try{
+        if(m === 'get' || m === 'del') return window.api[m](path);
+        return window.api[m](path, body);
+      }catch(e){ /* fall through */ }
+    }
+    if(window.api && m === 'delete' && window.api.del){
+      return window.api.del(path);
+    }
     var base = (window.api && window.api.base) || '/api/v1';
     var headers = {'Content-Type':'application/json'};
     var token = null;
     try{
-      // shared.js stocke le token dans api ou localStorage
       token = (window.api && window.api.token) || localStorage.getItem('access_token') || localStorage.getItem('token');
     }catch(e){}
     if(token) headers['Authorization'] = 'Bearer '+token;
