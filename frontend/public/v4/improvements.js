@@ -1111,7 +1111,7 @@
     bar.appendChild(box);
 
     function render(){
-      CF.savedViews.list().then(function(views){
+      CF.savedViews.list().then(async function(views){
         box.innerHTML = '<button class="view-chip" id="cf-save-view" style="border-style:dashed">+ Save view</button>';
         views.forEach(function(v){
           var chip = document.createElement('button');
@@ -1573,7 +1573,7 @@
     if(setId){
     document.getElementById('cf-snap-btn').addEventListener('click', async function(){
       var name = await CF.modal.prompt('Nom de la version (optionnel) :');
-      CF.snapshots.create(setId, name).then(function(r){
+      CF.snapshots.create(setId, name).then(async function(r){
         if(CF.toastGroup) CF.toastGroup.push('Snapshot v'+r.snapshot_count+' créé', 'success');
       }).catch(function(e){
         if(CF.toastGroup) CF.toastGroup.push('Erreur snapshot : '+e.message,'error');
@@ -1581,7 +1581,7 @@
     });
 
     document.getElementById('cf-versions-btn').addEventListener('click', async function(){
-      CF.snapshots.list(setId).then(function(snaps){
+      CF.snapshots.list(setId).then(async function(snaps){
         if(!snaps.length){ await CF.modal.alert('Aucune version sauvegardée. Clique 📸 Snap pour créer la première.'); return; }
         var msg = snaps.map(function(s,i){ return (i+1)+'. '+s.name+' — '+(s.tracks||[]).length+' tracks — '+(s.created_at||'').slice(0,16); }).join('\n');
         await CF.modal.alert('Versions:\n\n'+msg);
@@ -1888,7 +1888,7 @@
     btn.innerHTML = '🎯 Tracks similaires (BPM ±4 + Key compatible)';
     btn.addEventListener('click', async function(){
       btn.disabled = true; btn.textContent = 'Recherche…';
-      CF.findSimilar(trackId, 10).then(function(list){
+      CF.findSimilar(trackId, 10).then(async function(list){
         btn.disabled = false; btn.textContent = '🎯 Tracks similaires';
         if(!list || !list.length){ await CF.modal.alert('Aucune track similaire trouvée'); return; }
         var url = '/library?bpm_min='+(list[0].bpm-3)+'&bpm_max='+(list[0].bpm+3);
@@ -2624,10 +2624,10 @@
       setTimeout(function(){URL.revokeObjectURL(url)},100);
     });
     document.getElementById('cf-set-import').addEventListener('click', async function(){ document.getElementById('cf-set-file').click(); });
-    document.getElementById('cf-set-file').addEventListener('change', function(e){
+    document.getElementById('cf-set-file').addEventListener('change', async function(e){
       var f = e.target.files[0]; if(!f) return;
       var r = new FileReader();
-      r.onload = function(){
+      r.onload = async function(){
         try{
           var data = JSON.parse(r.result);
           Object.keys(data).forEach(function(k){ localStorage.setItem(k, data[k]); });
