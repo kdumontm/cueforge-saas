@@ -7,6 +7,63 @@
   'use strict';
   if(window.cfImprovements) return;
   var CF = window.cfImprovements = {};
+
+  /* CF.modal — remplace prompt/confirm/alert natifs (bloquants en automation/PWA) */
+  CF.modal = {
+    prompt: function(message, defaultValue){
+      return new Promise(function(resolve){
+        var ovr = document.createElement('div');
+        ovr.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:var(--font-display,sans-serif);';
+        var card = document.createElement('div');
+        card.style.cssText = 'background:var(--s-1,#0a0a0a);border:1px solid var(--b-default,#2a2a2a);border-radius:12px;padding:20px;min-width:340px;max-width:90vw;color:var(--c-primary,#fff);';
+        card.innerHTML = '<div style="font-size:14px;margin-bottom:12px">'+(message||'').replace(/</g,'&lt;')+'</div>'+
+          '<input type="text" style="width:100%;padding:8px 10px;border-radius:6px;background:var(--s-2,#161616);border:1px solid var(--b-default,#2a2a2a);color:var(--c-primary,#fff);font-family:inherit;font-size:13px;margin-bottom:12px" value="'+(defaultValue||'').replace(/"/g,'&quot;')+'">'+
+          '<div style="display:flex;gap:8px;justify-content:flex-end"><button data-cancel style="padding:6px 12px;border-radius:6px;background:var(--s-3,#1f1f1f);border:1px solid var(--b-default,#2a2a2a);color:var(--c-secondary,#aaa);font-size:12px;cursor:pointer">Annuler</button>'+
+          '<button data-ok style="padding:6px 12px;border-radius:6px;background:var(--amber,#ff7a18);color:#000;border:none;font-weight:600;font-size:12px;cursor:pointer">OK</button></div>';
+        ovr.appendChild(card);
+        document.body.appendChild(ovr);
+        var input = card.querySelector('input');
+        var done = function(v){ ovr.remove(); resolve(v); };
+        input.focus(); input.select();
+        card.querySelector('[data-ok]').addEventListener('click', function(){ done(input.value); });
+        card.querySelector('[data-cancel]').addEventListener('click', function(){ done(null); });
+        input.addEventListener('keydown', function(e){
+          if(e.key === 'Enter') done(input.value);
+          else if(e.key === 'Escape') done(null);
+        });
+      });
+    },
+    confirm: function(message){
+      return new Promise(function(resolve){
+        var ovr = document.createElement('div');
+        ovr.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:var(--font-display,sans-serif);';
+        var card = document.createElement('div');
+        card.style.cssText = 'background:var(--s-1,#0a0a0a);border:1px solid var(--b-default,#2a2a2a);border-radius:12px;padding:20px;min-width:340px;max-width:90vw;color:var(--c-primary,#fff);';
+        card.innerHTML = '<div style="font-size:14px;margin-bottom:16px;white-space:pre-wrap">'+(message||'').replace(/</g,'&lt;')+'</div>'+
+          '<div style="display:flex;gap:8px;justify-content:flex-end"><button data-cancel style="padding:6px 12px;border-radius:6px;background:var(--s-3,#1f1f1f);border:1px solid var(--b-default,#2a2a2a);color:var(--c-secondary,#aaa);font-size:12px;cursor:pointer">Annuler</button>'+
+          '<button data-ok style="padding:6px 12px;border-radius:6px;background:var(--amber,#ff7a18);color:#000;border:none;font-weight:600;font-size:12px;cursor:pointer">OK</button></div>';
+        ovr.appendChild(card);
+        document.body.appendChild(ovr);
+        var done = function(v){ ovr.remove(); resolve(v); };
+        card.querySelector('[data-ok]').addEventListener('click', function(){ done(true); });
+        card.querySelector('[data-cancel]').addEventListener('click', function(){ done(false); });
+      });
+    },
+    alert: function(message){
+      return new Promise(function(resolve){
+        var ovr = document.createElement('div');
+        ovr.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:var(--font-display,sans-serif);';
+        var card = document.createElement('div');
+        card.style.cssText = 'background:var(--s-1,#0a0a0a);border:1px solid var(--b-default,#2a2a2a);border-radius:12px;padding:20px;min-width:340px;max-width:90vw;max-height:70vh;overflow:auto;color:var(--c-primary,#fff);';
+        card.innerHTML = '<div style="font-size:13px;margin-bottom:16px;white-space:pre-wrap">'+(message||'').replace(/</g,'&lt;')+'</div>'+
+          '<div style="display:flex;justify-content:flex-end"><button data-ok style="padding:6px 12px;border-radius:6px;background:var(--amber,#ff7a18);color:#000;border:none;font-weight:600;font-size:12px;cursor:pointer">OK</button></div>';
+        ovr.appendChild(card);
+        document.body.appendChild(ovr);
+        card.querySelector('[data-ok]').addEventListener('click', function(){ ovr.remove(); resolve(); });
+      });
+    }
+  };
+
   var LS_PREFIX = 'cf_imp_';
   var $ = function(s,r){return (r||document).querySelector(s)};
   var $$ = function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
@@ -1076,8 +1133,8 @@
           });
           box.appendChild(chip);
         });
-        document.getElementById('cf-save-view').addEventListener('click', function(){
-          var name = prompt('Nom de la vue :');
+        document.getElementById('cf-save-view').addEventListener('click', async function(){
+          var name = await CF.modal.prompt('Nom de la vue :');
           if(!name) return;
           var filters = {};
           document.querySelectorAll('[data-cf-persist^="lib_"]').forEach(function(el){
@@ -1514,8 +1571,8 @@
     topBar.appendChild(box);
 
     if(setId){
-    document.getElementById('cf-snap-btn').addEventListener('click', function(){
-      var name = prompt('Nom de la version (optionnel) :') || null;
+    document.getElementById('cf-snap-btn').addEventListener('click', async function(){
+      var name = await CF.modal.prompt('Nom de la version (optionnel) :');
       CF.snapshots.create(setId, name).then(function(r){
         if(CF.toastGroup) CF.toastGroup.push('Snapshot v'+r.snapshot_count+' créé', 'success');
       }).catch(function(e){
@@ -1523,11 +1580,11 @@
       });
     });
 
-    document.getElementById('cf-versions-btn').addEventListener('click', function(){
+    document.getElementById('cf-versions-btn').addEventListener('click', async function(){
       CF.snapshots.list(setId).then(function(snaps){
-        if(!snaps.length){ alert('Aucune version sauvegardée. Clique 📸 Snap pour créer la première.'); return; }
+        if(!snaps.length){ await CF.modal.alert('Aucune version sauvegardée. Clique 📸 Snap pour créer la première.'); return; }
         var msg = snaps.map(function(s,i){ return (i+1)+'. '+s.name+' — '+(s.tracks||[]).length+' tracks — '+(s.created_at||'').slice(0,16); }).join('\n');
-        alert('Versions:\n\n'+msg);
+        await CF.modal.alert('Versions:\n\n'+msg);
       });
     });
 
@@ -1537,7 +1594,7 @@
           var url = location.origin + r.public_url;
           if(navigator.clipboard) navigator.clipboard.writeText(url);
           if(CF.toastGroup) CF.toastGroup.push('Lien copié : '+url, 'success');
-          else alert('Lien public : '+url);
+          else CF.modal.alert('Lien public : '+url);
         }
       }).catch(function(e){
         if(CF.toastGroup) CF.toastGroup.push('Erreur partage : '+e.message,'error');
@@ -1829,14 +1886,14 @@
     btn.id = 'cf-similar-btn';
     btn.style.cssText = 'width:100%;margin-top:10px;padding:10px 14px;border-radius:8px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-family:inherit;font-size:13px;cursor:pointer;text-align:left';
     btn.innerHTML = '🎯 Tracks similaires (BPM ±4 + Key compatible)';
-    btn.addEventListener('click', function(){
+    btn.addEventListener('click', async function(){
       btn.disabled = true; btn.textContent = 'Recherche…';
       CF.findSimilar(trackId, 10).then(function(list){
         btn.disabled = false; btn.textContent = '🎯 Tracks similaires';
-        if(!list || !list.length){ alert('Aucune track similaire trouvée'); return; }
+        if(!list || !list.length){ await CF.modal.alert('Aucune track similaire trouvée'); return; }
         var url = '/library?bpm_min='+(list[0].bpm-3)+'&bpm_max='+(list[0].bpm+3);
         var msg = list.slice(0,8).map(function(s){return '• '+(s.artist||'?')+' — '+(s.title||'?')+' ('+(s.bpm||'-')+' BPM, '+(s.key||'-')+', '+s.score+'%)'}).join('\n');
-        if(confirm('Tracks similaires:\n\n'+msg+'\n\nFiltrer la library ?')){
+        if(await CF.modal.confirm('Tracks similaires:\n\n'+msg+'\n\nFiltrer la library ?')){
           location.href = url;
         }
       }).catch(function(){
@@ -1861,10 +1918,10 @@
     btn.className = 'btn-sm';
     btn.style.cssText = 'margin-top:8px;padding:6px 10px;border-radius:6px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-size:11px;cursor:pointer';
     btn.innerHTML = '📋 Copier cues vers…';
-    btn.addEventListener('click', function(){
-      var dst = prompt('ID de la track destinataire :');
+    btn.addEventListener('click', async function(){
+      var dst = await CF.modal.prompt('ID de la track destinataire :');
       if(!dst) return;
-      var ow = confirm('Écraser les cues existantes dans la track destinataire ?');
+      var ow = await CF.modal.confirm('Écraser les cues existantes dans la track destinataire ?');
       CF.copyCues(trackId, dst, ow).then(function(r){
         if(CF.toastGroup) CF.toastGroup.push(r.copied+' cues copiées vers track #'+dst, 'success');
       }).catch(function(e){
@@ -2552,7 +2609,7 @@
       '<button id="cf-set-import" class="btn-sm" style="padding:6px 12px;border-radius:8px;background:var(--s-2);border:1px solid var(--b-default);color:var(--c-secondary);font-size:12px;cursor:pointer">📤 Import settings</button>'+
       '<input type="file" id="cf-set-file" accept="application/json" style="display:none">';
     sec.appendChild(io);
-    document.getElementById('cf-set-export').addEventListener('click', function(){
+    document.getElementById('cf-set-export').addEventListener('click', async function(){
       var data = {};
       try{
         for(var i=0;i<localStorage.length;i++){
@@ -2566,7 +2623,7 @@
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function(){URL.revokeObjectURL(url)},100);
     });
-    document.getElementById('cf-set-import').addEventListener('click', function(){ document.getElementById('cf-set-file').click(); });
+    document.getElementById('cf-set-import').addEventListener('click', async function(){ document.getElementById('cf-set-file').click(); });
     document.getElementById('cf-set-file').addEventListener('change', function(e){
       var f = e.target.files[0]; if(!f) return;
       var r = new FileReader();
@@ -2574,9 +2631,9 @@
         try{
           var data = JSON.parse(r.result);
           Object.keys(data).forEach(function(k){ localStorage.setItem(k, data[k]); });
-          alert('Settings importés. La page va recharger.');
+          await CF.modal.alert('Settings importés. La page va recharger.');
           location.reload();
-        }catch(err){ alert('Fichier invalide: '+err.message); }
+        }catch(err){ CF.modal.alert('Fichier invalide: '+err.message); }
       };
       r.readAsText(f);
     });
@@ -2723,7 +2780,7 @@
               var dup = await CF.checkDuplicate({md5: md5});
               if(dup && dup.matches && dup.matches.length){
                 var m = dup.matches[0];
-                var go = confirm('Doublon detecte : "'+(m.title||'sans titre')+'" par '+(m.artist||'?')+' existe deja. Uploader quand meme ?');
+                var go = await CF.modal.confirm('Doublon detecte : "'+(m.title||'sans titre')+'" par '+(m.artist||'?')+' existe deja. Uploader quand meme ?');
                 if(!go) throw new Error('Doublon ignore');
               }
             }
