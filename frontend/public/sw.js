@@ -12,8 +12,8 @@
 // 🔴 2026-04-27 : bump v6 → v7 pour purger l'ancienne version de admin.html, analyze.html,
 //   shared.js et shared.css après la grosse session de fixes (Dev FF/GG/HH + manager).
 //   Kevin disait "je vois pas les modifs" → SW servait encore les versions du 23/04.
-const CACHE_NAME = 'trackcue-v33';
-const SWR_CACHE_NAME = 'trackcue-swr-v4';
+const CACHE_NAME = 'trackcue-v34';
+const SWR_CACHE_NAME = 'trackcue-swr-v5';
 const STATIC_ASSETS = [
   '/manifest.json',
 ];
@@ -37,13 +37,31 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate: supprimer TOUS les anciens caches (v1, etc.) sauf le SWR courant.
+// Activate: supprimer TOUS les anciens caches sauf les courants.
+// 🔴 2026-05-07 : bump v33→v34 + purge explicite des anciens swr-v* qui restaient
+// orphelins (la blacklist forcait swr-v3 a etre supprime meme s'il etait l'ancien
+// SWR_CACHE_NAME).
+const CACHE_BLACKLIST = [
+  'trackcue-v1','trackcue-v2','trackcue-v3','trackcue-v4','trackcue-v5','trackcue-v6',
+  'trackcue-v7','trackcue-v8','trackcue-v9','trackcue-v10','trackcue-v11','trackcue-v12',
+  'trackcue-v13','trackcue-v14','trackcue-v15','trackcue-v16','trackcue-v17','trackcue-v18',
+  'trackcue-v19','trackcue-v20','trackcue-v21','trackcue-v22','trackcue-v23','trackcue-v24',
+  'trackcue-v25','trackcue-v26','trackcue-v27','trackcue-v28','trackcue-v29','trackcue-v30',
+  'trackcue-v31','trackcue-v32','trackcue-v33',
+  'trackcue-swr-v1','trackcue-swr-v2','trackcue-swr-v3','trackcue-swr-v4',
+];
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((names) =>
       Promise.all(
         names
-          .filter((n) => n !== CACHE_NAME && n !== SWR_CACHE_NAME)
+          .filter((n) => {
+            if (n === CACHE_NAME || n === SWR_CACHE_NAME) return false;
+            // Purge tout cache trackcue-* qui n'est pas le current
+            if (n.startsWith('trackcue-')) return true;
+            // Purge tout cache dans la blacklist
+            return CACHE_BLACKLIST.includes(n);
+          })
           .map((n) => caches.delete(n)),
       ),
     ),

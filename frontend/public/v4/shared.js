@@ -393,9 +393,19 @@ window.__tcOpenUserMenu = function(anchor, userInfo){
       ev.preventDefault();
       close();
       try {
-        if(typeof api !== 'undefined' && api.logout) api.logout();
-        else { localStorage.removeItem('tc_token'); location.href = '/'; }
-      } catch { location.href = '/'; }
+        // Clear toutes les variantes de tokens possibles
+        ['tc_token','access_token','token','refresh_token','authToken','user'].forEach(function(k){
+          try{ localStorage.removeItem(k); sessionStorage.removeItem(k); }catch(e){}
+        });
+        // Appeler le endpoint backend pour invalider le refresh_token serveur
+        try{
+          if(typeof api !== 'undefined' && api.post) api.post('/auth/logout',{}).catch(function(){});
+        }catch(_){ }
+        // Appeler api.logout() si disponible (custom logic)
+        if(typeof api !== 'undefined' && api.logout) try{ api.logout(); }catch(_){ }
+        // Redirect vers landing publique
+        location.href = '/v4/landing.html';
+      } catch { location.href = '/v4/landing.html'; }
     }
     // Les autres items sont des <a href> → navigation native
   });

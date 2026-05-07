@@ -2296,35 +2296,12 @@
 
   /* --- #82 Preview thèmes au hover (settings) --- */
   CF.bindThemePreviewHover = function(){
-    if(!/settings/.test(location.pathname)) return;
-    var cards = document.querySelectorAll('.theme-card');
-    if(!cards.length) return;
-    var savedTheme = document.documentElement.getAttribute('data-theme') || '';
-    cards.forEach(function(card){
-      if(card.dataset.cfHover) return;
-      card.dataset.cfHover = '1';
-      var theme = card.getAttribute('data-theme') || card.querySelector('[data-theme]')?.getAttribute('data-theme') || '';
-      if(!theme) return;
-      var hoverTimer = null;
-      card.addEventListener('mouseenter', function(){
-        hoverTimer = setTimeout(function(){
-          // Preview : applique le thème
-          document.documentElement.setAttribute('data-theme', theme);
-          card.classList.add('cf-theme-previewing');
-        }, 400);
-      });
-      card.addEventListener('mouseleave', function(){
-        if(hoverTimer){ clearTimeout(hoverTimer); hoverTimer = null; }
-        // Restore le thème actif si pas cliqué
-        if(!card.classList.contains('active')){
-          document.documentElement.setAttribute('data-theme', savedTheme);
-          card.classList.remove('cf-theme-previewing');
-        }
-      });
-      card.addEventListener('click', function(){
-        savedTheme = theme;
-      });
-    });
+    // Disabled wave 15 : interferait avec le click handler natif (#9 settings.html
+    // applique data-theme via applyTheme(name).toLowerCase().replace(/\s+/g,'-')
+    // alors que mon hover applique le data-theme attribute brut "neon|warm|cyber").
+    // Resultat: data-theme=warm vs amber-noir, .active class pas deplacee.
+    // Le click natif fait deja applyTheme + saveSettings + active class. Pas besoin de surcouche.
+    return;
   };
 
   /* --- #83 Profil audio préféré (settings) --- */
