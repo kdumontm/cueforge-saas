@@ -6822,14 +6822,21 @@ async def websocket_status(websocket: WebSocket, db: Session = Depends(get_db)):
                 await websocket.send_json({"error": "track_ids required"})
                 continue
 
-            # Fetch current track statuses
+            # PERF Wave3: Bulk fetch des tracks au lieu de N queries (était N+1
+            # mortel — un poll de 50 tracks toutes les 2s = 25 queries/s/client).
+            # Avec joinedload(analysis) on évite aussi la lazy-load de track.analysis.
+            from sqlalchemy.orm import joinedload as _joinedload
+            tracks_q = db.query(Track).options(
+                _joinedload(Track.analysis)
+            ).filter(Track.id.in_(track_ids)).all()
+            tracks_by_id = {t.id: t for t in tracks_q}
+
             statuses = {}
             for tid in track_ids:
-                track = db.query(Track).filter(Track.id == tid).first()
+                track = tracks_by_id.get(int(tid)) if str(tid).isdigit() else tracks_by_id.get(tid)
                 if track:
                     status_str = track.status.value if hasattr(track.status, 'value') else str(track.status)
                     if detailed:
-                        # v6.4: Granular progress — include analysis summary when available
                         track_info = {
                             "status": status_str,
                             "title": track.title or track.original_filename,
@@ -6845,11 +6852,9 @@ async def websocket_status(websocket: WebSocket, db: Session = Depends(get_db)):
                                 "stereo": a.stereo_width is not None,
                                 "quality": a.has_clipping is not None,
                             }
-                            # Count completed analysis steps
                             steps = track_info["progress"]
                             done = sum(1 for v in steps.values() if v)
                             track_info["progress_pct"] = round(done / len(steps) * 100)
-                            # v6.4: Include key metrics for live display
                             track_info["bpm"] = a.bpm
                             track_info["key"] = a.key
                             track_info["has_clipping"] = a.has_clipping

@@ -563,17 +563,25 @@ async def reorder_cue_points(
     if not reorder_data:
         raise HTTPException(status_code=400, detail="Reorder data required")
 
-    updated = 0
+    # PERF Wave3 : bulk fetch puis bulk update au lieu de N queries dans 2 boucles.
+    # Avant : O(slots × cues_per_slot) requêtes DB. Après : 1 SELECT + 1 commit.
+    cue_id_to_slot = {}
     for slot_str, cue_ids in reorder_data.items():
         slot = int(slot_str)
         for cue_id in cue_ids:
-            cue = db.query(CuePoint).filter(
-                CuePoint.id == cue_id,
-                CuePoint.track_id == track_id,
-            ).first()
-            if cue:
-                cue.number = slot
-                updated += 1
+            cue_id_to_slot[int(cue_id)] = slot
+
+    if not cue_id_to_slot:
+        return {"updated": 0}
+
+    cues = db.query(CuePoint).filter(
+        CuePoint.id.in_(cue_id_to_slot.keys()),
+        CuePoint.track_id == track_id,
+    ).all()
+    updated = 0
+    for cue in cues:
+        cue.number = cue_id_to_slot[cue.id]
+        updated += 1
 
     db.commit()
     return {"updated": updated}
@@ -633,19 +641,27 @@ async def batch_update_cue_points(
     if not batch_data or "updates" not in batch_data:
         raise HTTPException(status_code=400, detail="updates array required")
 
+    # PERF Wave3 : bulk fetch puis applique les updates en mémoire.
+    updates = batch_data["updates"]
+    ids_in_request = [u.get("id") for u in updates if u.get("id") is not None]
+    if not ids_in_request:
+        return {"updated": 0}
+
+    cues = db.query(CuePoint).filter(
+        CuePoint.id.in_(ids_in_request),
+        CuePoint.track_id == track_id,
+    ).all()
+    cues_by_id = {c.id: c for c in cues}
+
     updated = 0
-    for update in batch_data["updates"]:
+    for update in updates:
         cue_id = update.get("id")
-        cue = db.query(CuePoint).filter(
-            CuePoint.id == cue_id,
-            CuePoint.track_id == track_id,
-        ).first()
+        cue = cues_by_id.get(cue_id)
         if not cue:
             continue
 
         old_vals = {k: getattr(cue, k) for k in ["name", "color", "position_ms"]}
 
-        # Update fields
         for field, value in update.items():
             if field != "id" and hasattr(cue, field):
                 setattr(cue, field, value)
@@ -1934,13 +1950,13 @@ async def batch_analyze(
     db: Session = Depends(get_db),
 ):
     """Point 26: Queue multiple tracks for cue analysis."""
-    # Verify ownership
+    # PERF Wave3 : bulk verify ownership en 1 query au lieu de N
+    owned_ids = {tid for (tid,) in db.query(Track.id).filter(
+        Track.id.in_(track_ids),
+        Track.user_id == user.id,
+    ).all()}
     for track_id in track_ids:
-        track = db.query(Track).filter(
-            Track.id == track_id,
-            Track.user_id == user.id,
-        ).first()
-        if not track:
+        if track_id not in owned_ids:
             raise HTTPException(status_code=403, detail=f"Track {track_id} not authorized")
 
     batch_id = str(uuid.uuid4())
@@ -1975,13 +1991,13 @@ async def batch_export(
     db: Session = Depends(get_db),
 ):
     """Point 27: Export multiple tracks to ZIP."""
-    # Verify ownership
+    # PERF Wave3 : bulk verify ownership en 1 query au lieu de N
+    owned_ids = {tid for (tid,) in db.query(Track.id).filter(
+        Track.id.in_(track_ids),
+        Track.user_id == user.id,
+    ).all()}
     for track_id in track_ids:
-        track = db.query(Track).filter(
-            Track.id == track_id,
-            Track.user_id == user.id,
-        ).first()
-        if not track:
+        if track_id not in owned_ids:
             raise HTTPException(status_code=403, detail=f"Track {track_id} not authorized")
 
     batch_id = str(uuid.uuid4())
@@ -2013,13 +2029,13 @@ async def batch_regenerate(
     db: Session = Depends(get_db),
 ):
     """Point 28: Regenerate cues for multiple tracks."""
-    # Verify ownership
+    # PERF Wave3 : bulk verify ownership en 1 query au lieu de N
+    owned_ids = {tid for (tid,) in db.query(Track.id).filter(
+        Track.id.in_(track_ids),
+        Track.user_id == user.id,
+    ).all()}
     for track_id in track_ids:
-        track = db.query(Track).filter(
-            Track.id == track_id,
-            Track.user_id == user.id,
-        ).first()
-        if not track:
+        if track_id not in owned_ids:
             raise HTTPException(status_code=403, detail=f"Track {track_id} not authorized")
 
     batch_id = str(uuid.uuid4())
@@ -2046,13 +2062,13 @@ async def batch_quality(
     db: Session = Depends(get_db),
 ):
     """Point 29: Evaluate quality for multiple tracks."""
-    # Verify ownership
+    # PERF Wave3 : bulk verify ownership en 1 query au lieu de N
+    owned_ids = {tid for (tid,) in db.query(Track.id).filter(
+        Track.id.in_(track_ids),
+        Track.user_id == user.id,
+    ).all()}
     for track_id in track_ids:
-        track = db.query(Track).filter(
-            Track.id == track_id,
-            Track.user_id == user.id,
-        ).first()
-        if not track:
+        if track_id not in owned_ids:
             raise HTTPException(status_code=403, detail=f"Track {track_id} not authorized")
 
     batch_id = str(uuid.uuid4())
@@ -2116,13 +2132,13 @@ async def estimate_batch_resources(
     db: Session = Depends(get_db),
 ):
     """Point 34: Estimate resources needed for batch operation."""
-    # Verify ownership
+    # PERF Wave3 : bulk verify ownership en 1 query au lieu de N
+    owned_ids = {tid for (tid,) in db.query(Track.id).filter(
+        Track.id.in_(track_ids),
+        Track.user_id == user.id,
+    ).all()}
     for track_id in track_ids:
-        track = db.query(Track).filter(
-            Track.id == track_id,
-            Track.user_id == user.id,
-        ).first()
-        if not track:
+        if track_id not in owned_ids:
             raise HTTPException(status_code=403, detail=f"Track {track_id} not authorized")
 
     # Estimate based on number of tracks and operation type
