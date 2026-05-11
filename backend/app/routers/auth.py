@@ -289,6 +289,14 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
     # PERF Wave1: batch 3 commits → 1 commit. ~60-100ms gagnés par login.
     if not user.email_verified:
         user.email_verified = True
+    # PERF Wave8: transparent rehash si le cost factor est obsolète (bcrypt 12 → 10).
+    # passlib détecte que le hash est "deprecated" et on rehash avec les rounds courants.
+    try:
+        from app.services.auth_service import pwd_context
+        if pwd_context.needs_update(user.password_hash):
+            user.password_hash = hash_password(credentials.password)
+    except Exception:
+        pass
     # 🔴 FIX (faille 8) : Stocke le HASH SHA-256, pas le token brut
     user.refresh_token = _hash_token(refresh)
     user.last_login_at = datetime.utcnow()

@@ -94,7 +94,10 @@ class Settings(BaseSettings):
     STRIPE_PUBLIC_KEY: Optional[str] = None
 
     # Auth tuning
-    BCRYPT_ROUNDS: int = 12
+    # PERF Wave8: 12 → 10. OWASP 2024 recommande >= 10 pour bcrypt.
+    # 12 = ~200ms hash/verify, 10 = ~50ms. Le cost est encodé dans le hash,
+    # donc les anciens hashes restent verifiables (passlib auto-detect).
+    BCRYPT_ROUNDS: int = 10
     MAX_FILE_SIZE_MB: int = 200
 
     # Logging
