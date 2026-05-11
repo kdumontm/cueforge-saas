@@ -288,6 +288,24 @@ def _pg_dialect():
     return postgresql.dialect()
 
 
+def _batched_schema_snapshot(conn) -> dict:
+    """PERF Wave9: une seule requête information_schema pour TOUS les tables/columns
+    au lieu de N×inspector.get_columns() (chaque get_columns = 280ms sur Railway).
+
+    Retourne : {table_name: {col_name, col_name, ...}}
+    Sur ~40 tables : 1 query (~30ms) au lieu de 40 × 280ms = 11s.
+    """
+    rows = conn.execute(text(
+        "SELECT table_name, column_name "
+        "FROM information_schema.columns "
+        "WHERE table_schema = 'public'"
+    )).all()
+    snapshot: dict = {}
+    for t, c in rows:
+        snapshot.setdefault(t, set()).add(c)
+    return snapshot
+
+
 def run_migrations(engine: Engine) -> None:
     """
     Add any missing columns to existing tables.
@@ -297,16 +315,21 @@ def run_migrations(engine: Engine) -> None:
     Two-pass approach:
     1. PENDING_MIGRATIONS dict (explicit column definitions)
     2. Auto-detect from SQLAlchemy Base.metadata (catches any model/DB drift)
+
+    PERF Wave9: utilise un schema snapshot batché (1 query au lieu de N×280ms).
     """
     try:
-        inspector = inspect(engine)
         with engine.connect() as conn:
+            # PERF Wave9: snapshot complet du schéma en 1 query
+            schema = _batched_schema_snapshot(conn)
+            existing_tables = set(schema.keys())
+
             # ── Pass 1: Explicit migrations from PENDING_MIGRATIONS ──────────
             for table_name, columns in PENDING_MIGRATIONS.items():
-                if table_name not in inspector.get_table_names():
+                if table_name not in existing_tables:
                     continue  # table doesn't exist yet (will be created by create_all)
 
-                existing = {col["name"] for col in inspector.get_columns(table_name)}
+                existing = schema.get(table_name, set())
 
                 for col_name, col_type in columns.items():
                     if col_name not in existing:
@@ -315,6 +338,7 @@ def run_migrations(engine: Engine) -> None:
                             conn.execute(text(
                                 f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type}"
                             ))
+                            existing.add(col_name)  # garde le snapshot à jour
                         except Exception as e:
                             logger.warning(f"Failed to add {table_name}.{col_name}: {e}")
 
@@ -322,11 +346,10 @@ def run_migrations(engine: Engine) -> None:
 
             # ── Pass 2: Auto-detect missing columns from SQLAlchemy models ───
             from app.database import Base as AppBase
-            table_names_in_db = set(inspector.get_table_names())
             for table in AppBase.metadata.sorted_tables:
-                if table.name not in table_names_in_db:
+                if table.name not in existing_tables:
                     continue
-                existing = {col["name"] for col in inspector.get_columns(table.name)}
+                existing = schema.get(table.name, set())
                 for col in table.columns:
                     if col.name not in existing:
                         try:
@@ -335,6 +358,7 @@ def run_migrations(engine: Engine) -> None:
                             conn.execute(text(
                                 f"ALTER TABLE {table.name} ADD COLUMN {col.name} {ddl_type}"
                             ))
+                            existing.add(col.name)
                         except Exception as e:
                             logger.warning(f"Auto-migration failed for {table.name}.{col.name}: {e}")
 
