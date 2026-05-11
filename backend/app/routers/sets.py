@@ -160,7 +160,9 @@ def list_sets(
     _ckey = f"{current_user.id}:list:v{_uver}"
     _cached = cache_get("sets", _ckey)
     if _cached is not None:
-        return [DJSetResponse(**item) for item in _cached]
+        # PERF Wave7: JSONResponse fast-path — skip re-validation Pydantic
+        from fastapi.responses import JSONResponse
+        return JSONResponse(content=_cached)
 
     # ⚡ OPTIM : N+1 éliminé — LEFT JOIN + GROUP BY au lieu d'1 SELECT + N COUNT.
     rows = (

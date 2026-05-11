@@ -126,7 +126,9 @@ def list_playlists(
     _ckey = f"{current_user.id}:list:v{_uver}:p{parent_id if parent_id is not None else 'root'}"
     _cached = cache_get("playlists", _ckey)
     if _cached is not None:
-        return [PlaylistResponse(**item) for item in _cached]
+        # PERF Wave7: JSONResponse fast-path — skip re-validation Pydantic
+        from fastapi.responses import JSONResponse
+        return JSONResponse(content=_cached)
 
     # ⚡ OPTIM : N+1 éliminé — une seule requête avec LEFT JOIN + GROUP BY
     # au lieu d'1 SELECT playlists + N COUNT(PlaylistTrack).

@@ -4321,7 +4321,10 @@ def list_tracks(
     _cache_key = f"{current_user.id}:list:{cache_params}"
     _cached = cache_get("tracks", _cache_key)
     if _cached:
-        return TrackListResponse(**_cached)
+        # PERF Wave7: JSONResponse pour skipper la re-validation Pydantic
+        # (sur limit=500 c'est ~100-200ms de Pydantic en moins par cache hit)
+        from fastapi.responses import JSONResponse
+        return JSONResponse(content=_cached)
 
     # ⚡ Build base query WITH filters but WITHOUT eager loading (for count)
     q = db.query(Track).filter(Track.user_id == current_user.id)

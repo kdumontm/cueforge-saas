@@ -71,7 +71,9 @@ async def list_notifications(
     _ckey = f"{user.id}:list:v{_uver}:p{page}_s{page_size}"
     _cached = cache_get("notifications", _ckey)
     if _cached is not None:
-        return NotificationListResponse(**_cached)
+        # PERF Wave7: JSONResponse fast-path — skip re-validation Pydantic
+        from fastapi.responses import JSONResponse
+        return JSONResponse(content=_cached)
 
     # ⚡ OPTIM : cleanup 90j probabiliste (1 appel sur 100) pour ne pas payer
     # un DELETE + COMMIT sur chaque GET /notifications.
