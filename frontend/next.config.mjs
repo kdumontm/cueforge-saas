@@ -84,9 +84,22 @@ const nextConfig = {
       ],
     };
   },
-  // Headers de cache pour les assets statiques
   async headers() {
     return [
+      // Catch-all FIRST — security headers + default short cache for HTML
+      // (Next.js: la dernière règle qui match écrase les mêmes header keys)
+      {
+        source: '/:path*',
+        headers: [
+          // Empêche le CDN (Fastly/Railway) de cacher le HTML indéfiniment
+          // s-maxage=60 → le CDN revalide toutes les 60s après un deploy
+          { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=30' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        ],
+      },
+      // Règles spécifiques APRÈS — elles écrasent Cache-Control du catch-all
       {
         source: '/_next/static/:path*',
         headers: [
@@ -106,11 +119,6 @@ const nextConfig = {
         ],
       },
       // PERF Wave2: assets /v4/* versionnés via ?v=YYYYMMDD → cache navigateur 1 an
-      // Les pages v4 bump ?v=... à chaque modif, donc l'URL change = nouveau fetch.
-      // Avant : s-maxage=60 (Railway re-validate toutes les 60s, browser pareil).
-      // Après : immutable 1y côté browser → 0 refetch pour shared.js & co.
-      // Note: Next.js path-to-regexp ne tolère pas (a|b|c) — on utilise une regex
-      // constraint sur le nom de fichier complet par extension.
       ...[
         'js', 'css',
         'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico',
@@ -119,22 +127,10 @@ const nextConfig = {
         source: `/v4/:filename(.*\\.${ext})`,
         headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
       })),
-      // /icons/* aussi (PWA icons stables)
+      // /icons/* (PWA icons stables)
       {
         source: '/icons/:path*',
         headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
-      },
-      {
-        source: '/:path*',
-        headers: [
-          // Empêche le CDN (Fastly/Railway) de cacher le HTML indéfiniment
-          // s-maxage=60 → le CDN revalide toutes les 60s après un deploy
-          // Les assets /_next/static/* gardent leur cache immutable grâce à la règle spécifique ci-dessus
-          { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=30' },
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-        ],
       },
     ];
   },
