@@ -109,18 +109,15 @@ const nextConfig = {
       // Les pages v4 bump ?v=... à chaque modif, donc l'URL change = nouveau fetch.
       // Avant : s-maxage=60 (Railway re-validate toutes les 60s, browser pareil).
       // Après : immutable 1y côté browser → 0 refetch pour shared.js & co.
-      {
-        source: '/v4/:path(.*\\.js)',
+      // Note: Next.js path-to-regexp v6 refuse les capturing groups → 1 règle par ext.
+      ...[
+        'js', 'css',
+        'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'ico',
+        'woff', 'woff2', 'ttf', 'otf',
+      ].map((ext) => ({
+        source: `/v4/:path*.${ext}`,
         headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
-      },
-      {
-        source: '/v4/:path(.*\\.css)',
-        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
-      },
-      {
-        source: '/v4/:path(.*\\.(png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf|otf))',
-        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
-      },
+      })),
       // /icons/* aussi (PWA icons stables)
       {
         source: '/icons/:path*',
