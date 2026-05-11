@@ -153,6 +153,15 @@ def list_sets(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # PERF Wave4 : cache Redis 15s — /sets est appelé sur chaque pageload de
+    # set-builder / mix-studio. Invalidation via cache_delete sur POST/DELETE.
+    from app.services.cache_service import cache_get, cache_set, get_user_version
+    _uver = get_user_version(current_user.id)
+    _ckey = f"{current_user.id}:list:v{_uver}"
+    _cached = cache_get("sets", _ckey)
+    if _cached is not None:
+        return [DJSetResponse(**item) for item in _cached]
+
     # ⚡ OPTIM : N+1 éliminé — LEFT JOIN + GROUP BY au lieu d'1 SELECT + N COUNT.
     rows = (
         db.query(DJSet, func.count(DJSetTrack.id).label("track_count"))
@@ -174,6 +183,10 @@ def list_sets(
             genre_tags=s.genre_tags or [],
             status=s.status, track_count=int(count or 0),
         ))
+    try:
+        cache_set("sets", _ckey, [r.model_dump(mode='json') for r in result], ttl=15)
+    except Exception:
+        pass
     return result
 
 
@@ -203,6 +216,12 @@ def create_set(
     db.add(s)
     db.commit()
     db.refresh(s)
+    # PERF Wave4: invalidate /sets list cache
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(current_user.id)
+    except Exception:
+        pass
     return DJSetResponse(
         id=s.id, name=s.name, description=s.description,
         venue=s.venue,
@@ -292,6 +311,12 @@ def update_set(
         setattr(s, field, value)
     db.commit()
     db.refresh(s)
+    # PERF Wave4: invalidate /sets list cache
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(current_user.id)
+    except Exception:
+        pass
     count = db.query(DJSetTrack).filter(DJSetTrack.set_id == s.id).count()
     return DJSetResponse(
         id=s.id, name=s.name, description=s.description,
@@ -314,6 +339,12 @@ def delete_set(
     s = _get_user_set(set_id, current_user, db)
     db.delete(s)
     db.commit()
+    # PERF Wave4: invalidate /sets list cache
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(current_user.id)
+    except Exception:
+        pass
 
 
 # ── Set Track management ────────────────────────────────────────────────────
