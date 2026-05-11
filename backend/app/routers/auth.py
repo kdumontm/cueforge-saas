@@ -193,14 +193,8 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
         email_verified=True,  # Auto-verify (no email service in dev/early prod)
     )
     db.add(new_user)
-    db.commit()
+    db.flush()                # Assigne l'ID sans commit
     db.refresh(new_user)
-
-    # Send verification email (non-blocking, don't fail registration)
-    try:
-        send_verification_email(new_user.email, verify_token)
-    except Exception:
-        pass  # SMTP not configured in dev
 
     access = create_access_token({"sub": str(new_user.id)})
     refresh = create_refresh_token({"sub": str(new_user.id)})
@@ -208,7 +202,14 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     # Store hashed refresh token (only hash in DB, plaintext returned to client)
     # 🔴 FIX (faille 8) : Stocke le HASH SHA-256 du refresh token, pas le token brut
     new_user.refresh_token = _hash_token(refresh)
+    # PERF Wave1: 2 commits → 1 commit (~60ms gagnés)
     db.commit()
+
+    # Send verification email APRÈS le commit (non-blocking)
+    try:
+        send_verification_email(new_user.email, verify_token)
+    except Exception:
+        pass  # SMTP not configured in dev
 
     return TokenResponse(
         access_token=access,
@@ -282,14 +283,12 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
     if not user or not user.password_hash or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Identifiant ou mot de passe incorrect")
 
-    # Auto-verify email on first login if not yet verified (no email service in dev)
-    if not user.email_verified:
-        user.email_verified = True
-        db.commit()
-
     access = create_access_token({"sub": str(user.id)})
     refresh = create_refresh_token({"sub": str(user.id)})
 
+    # PERF Wave1: batch 3 commits → 1 commit. ~60-100ms gagnés par login.
+    if not user.email_verified:
+        user.email_verified = True
     # 🔴 FIX (faille 8) : Stocke le HASH SHA-256, pas le token brut
     user.refresh_token = _hash_token(refresh)
     user.last_login_at = datetime.utcnow()
@@ -347,7 +346,7 @@ async def logout(user: User = Depends(get_current_user), db: Session = Depends(g
     """Invalidate the user's refresh token."""
     user.refresh_token = None
     db.commit()
-
+    invalidate_user_cache(user.id)  # PERF Wave1: purge token cache après logout
 
 @router.get("/sessions")
 async def get_active_sessions(user: User = Depends(get_current_user)):
