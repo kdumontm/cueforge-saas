@@ -12,21 +12,27 @@
 (function autoUpdateSW(){
   if (!('serviceWorker' in navigator)) return;
   let _refreshing = false;
+  let _lastCheck = 0;
   navigator.serviceWorker.addEventListener('controllerchange', function(){
     if (_refreshing) return;
     _refreshing = true;
     window.location.reload();
   });
   function checkUpdate(){
+    var now = Date.now();
+    // PERF Wave2: rate-limit à 1 check / 5 min max (au lieu de toutes les 60s
+    // + chaque visibilitychange). Réduit le bruit réseau, évite les hangs sur Safari.
+    if (now - _lastCheck < 5 * 60 * 1000) return;
+    _lastCheck = now;
     navigator.serviceWorker.getRegistration()
       .then(function(reg){ if (reg) reg.update(); })
       .catch(function(){});
   }
-  // Au load (avec delay pour pas bloquer le rendu initial)
-  setTimeout(checkUpdate, 1000);
-  // Polling pendant la session : check toutes les 60s
-  setInterval(checkUpdate, 60 * 1000);
-  // Aussi : check quand l'onglet redevient visible (focus)
+  // Au load (delay 3s pour pas concurrencer le rendu initial)
+  setTimeout(checkUpdate, 3000);
+  // Polling : toutes les 5 minutes seulement (était 1 minute → 5x moins de fetches)
+  setInterval(checkUpdate, 5 * 60 * 1000);
+  // Focus : seulement si > 5min depuis dernier check (rate-limit géré au-dessus)
   document.addEventListener('visibilitychange', function(){
     if (document.visibilityState === 'visible') checkUpdate();
   });

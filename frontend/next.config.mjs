@@ -105,6 +105,27 @@ const nextConfig = {
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
         ],
       },
+      // PERF Wave2: assets /v4/* versionnés via ?v=YYYYMMDD → cache navigateur 1 an
+      // Les pages v4 bump ?v=... à chaque modif, donc l'URL change = nouveau fetch.
+      // Avant : s-maxage=60 (Railway re-validate toutes les 60s, browser pareil).
+      // Après : immutable 1y côté browser → 0 refetch pour shared.js & co.
+      {
+        source: '/v4/:path(.*\\.js)',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+      {
+        source: '/v4/:path(.*\\.css)',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+      {
+        source: '/v4/:path(.*\\.(png|jpg|jpeg|gif|webp|svg|ico|woff|woff2|ttf|otf))',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+      // /icons/* aussi (PWA icons stables)
+      {
+        source: '/icons/:path*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
       {
         source: '/:path*',
         headers: [
