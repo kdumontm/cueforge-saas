@@ -41,11 +41,21 @@ async def toggle_favorite(
     if favorite:
         db.delete(favorite)
         db.commit()
+        try:
+            from app.services.cache_service import bump_user_version
+            bump_user_version(current_user.id)
+        except Exception:
+            pass
         return {"is_favorite": False, "message": "Favori supprimé"}
     else:
         new_favorite = Favorite(user_id=current_user.id, track_id=track_id)
         db.add(new_favorite)
         db.commit()
+        try:
+            from app.services.cache_service import bump_user_version
+            bump_user_version(current_user.id)
+        except Exception:
+            pass
         return {"is_favorite": True, "message": "Favori ajouté"}
 
 
@@ -60,7 +70,17 @@ async def get_favorites(
     ⚡ Requête unique via JOIN — évite N+1 et bug de visibilité d'index
     où `db.query(Favorite).filter(...).all()` retournait vide alors que
     le POST/check voyaient bien la row.
+
+    PERF Wave6: Redis cache 15s (invalidation via bump_user_version sur fav add/remove).
     """
+    # Cache lookup
+    from app.services.cache_service import cache_get, cache_set, get_user_version
+    _uver = get_user_version(current_user.id)
+    _ckey = f"{current_user.id}:list:v{_uver}"
+    _cached = cache_get("favorites", _ckey)
+    if _cached is not None:
+        return _cached
+
     from sqlalchemy.orm import selectinload
     from sqlalchemy import func
     from app.models.track import CuePoint
@@ -102,10 +122,15 @@ async def get_favorites(
         item['favorited_at'] = favorited_at.isoformat() if favorited_at else None
         tracks_data.append(item)
 
-    return {
+    response = {
         "tracks": tracks_data,
         "count": len(tracks_data),
     }
+    try:
+        cache_set("favorites", _ckey, response, ttl=15)
+    except Exception:
+        pass
+    return response
 
 
 @router.get("/api/v1/favorites/check/{track_id}")
@@ -147,4 +172,9 @@ async def remove_favorite(
 
     db.delete(favorite)
     db.commit()
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(current_user.id)
+    except Exception:
+        pass
     return {"message": "Favori supprimé"}

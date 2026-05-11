@@ -62,17 +62,19 @@ async def list_notifications(
     List user's notifications paginated, most recent first.
     Automatically deletes notifications older than 90 days.
 
-    Args:
-        page: Page number (1-indexed)
-        page_size: Number of notifications per page (1-100)
-
-    Returns:
-        Paginated list of notifications
+    PERF Wave6: Redis cache 15s (clé = user + version + page + page_size).
+    Invalidation via bump_user_version sur mark-read/delete.
     """
+    # Cache lookup
+    from app.services.cache_service import cache_get, cache_set, get_user_version
+    _uver = get_user_version(user.id)
+    _ckey = f"{user.id}:list:v{_uver}:p{page}_s{page_size}"
+    _cached = cache_get("notifications", _ckey)
+    if _cached is not None:
+        return NotificationListResponse(**_cached)
+
     # ⚡ OPTIM : cleanup 90j probabiliste (1 appel sur 100) pour ne pas payer
     # un DELETE + COMMIT sur chaque GET /notifications.
-    # En pratique : 100 visites ≈ 1 cleanup → impact utilisateur ~0,
-    # et la rétention reste effective à l'échelle.
     if random.randint(1, 100) == 1:
         cutoff_date = datetime.utcnow() - timedelta(days=90)
         db.query(Notification).filter(
@@ -93,12 +95,17 @@ async def list_notifications(
         (page - 1) * page_size
     ).limit(page_size).all()
 
-    return NotificationListResponse(
+    response = NotificationListResponse(
         notifications=notifications,
         total=total,
         page=page,
         page_size=page_size
     )
+    try:
+        cache_set("notifications", _ckey, response.model_dump(mode='json'), ttl=15)
+    except Exception:
+        pass
+    return response
 
 
 @router.get("/unread-count", response_model=UnreadCountResponse)
@@ -143,6 +150,11 @@ async def mark_as_read(
 
     notification.read = True
     db.commit()
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(user.id)
+    except Exception:
+        pass
 
     return {
         "message": "Notification marquée comme lue",
@@ -166,6 +178,11 @@ async def mark_all_as_read(
         Notification.read == False
     ).update({"read": True})
     db.commit()
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(user.id)
+    except Exception:
+        pass
 
     return {
         "message": f"{unread_count} notifications marquées comme lues",
@@ -201,6 +218,11 @@ async def delete_notification(
 
     db.delete(notification)
     db.commit()
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(user.id)
+    except Exception:
+        pass
 
     return {
         "message": "Notification supprimée",

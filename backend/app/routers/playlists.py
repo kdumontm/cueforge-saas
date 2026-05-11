@@ -120,6 +120,14 @@ def list_playlists(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # PERF Wave6: Redis cache 15s (clé = user + version + parent_id)
+    from app.services.cache_service import cache_get, cache_set, get_user_version
+    _uver = get_user_version(current_user.id)
+    _ckey = f"{current_user.id}:list:v{_uver}:p{parent_id if parent_id is not None else 'root'}"
+    _cached = cache_get("playlists", _ckey)
+    if _cached is not None:
+        return [PlaylistResponse(**item) for item in _cached]
+
     # ⚡ OPTIM : N+1 éliminé — une seule requête avec LEFT JOIN + GROUP BY
     # au lieu d'1 SELECT playlists + N COUNT(PlaylistTrack).
     q = (
@@ -137,7 +145,12 @@ def list_playlists(
         .order_by(Playlist.sort_order.asc(), Playlist.name.asc())
         .all()
     )
-    return [_playlist_to_response(pl, db, count=count) for pl, count in rows]
+    result = [_playlist_to_response(pl, db, count=count) for pl, count in rows]
+    try:
+        cache_set("playlists", _ckey, [r.model_dump(mode='json') for r in result], ttl=15)
+    except Exception:
+        pass
+    return result
 
 
 @router.post("", response_model=PlaylistResponse, status_code=201)
@@ -167,6 +180,11 @@ def create_playlist(
     )
     db.add(pl)
     db.commit()
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(current_user.id)
+    except Exception:
+        pass
     db.refresh(pl)
     return _playlist_to_response(pl, db)
 
@@ -220,6 +238,11 @@ def update_playlist(
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(pl, field, value)
     db.commit()
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(current_user.id)
+    except Exception:
+        pass
     db.refresh(pl)
     return _playlist_to_response(pl, db)
 
@@ -233,6 +256,11 @@ def delete_playlist(
     pl = _get_user_playlist(playlist_id, current_user, db)
     db.delete(pl)
     db.commit()
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(current_user.id)
+    except Exception:
+        pass
 
 
 @router.post("/{playlist_id}/tracks", response_model=PlaylistDetailResponse)
@@ -267,6 +295,11 @@ def add_tracks_to_playlist(
         next_pos += 1
 
     db.commit()
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(current_user.id)
+    except Exception:
+        pass
     return get_playlist(playlist_id, db, current_user)
 
 
@@ -286,6 +319,11 @@ def remove_track_from_playlist(
         raise HTTPException(status_code=404, detail="Track not in playlist")
     db.delete(entry)
     db.commit()
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(current_user.id)
+    except Exception:
+        pass
 
 
 @router.post("/{playlist_id}/reorder")
@@ -304,6 +342,11 @@ def reorder_playlist_tracks(
         if entry:
             entry.position = item.position
     db.commit()
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(current_user.id)
+    except Exception:
+        pass
     return {"status": "ok"}
 
 
@@ -323,6 +366,11 @@ def reorder_playlist_tracks_by_ids(
         if entry:
             entry.position = position
     db.commit()
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(current_user.id)
+    except Exception:
+        pass
     return {"status": "ok"}
 
 
@@ -355,5 +403,10 @@ def duplicate_playlist(
         db.add(new_entry)
 
     db.commit()
+    try:
+        from app.services.cache_service import bump_user_version
+        bump_user_version(current_user.id)
+    except Exception:
+        pass
     db.refresh(new_pl)
     return _playlist_to_response(new_pl, db)
