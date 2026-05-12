@@ -321,13 +321,58 @@ def get_user_version(user_id: int) -> int:
 
 
 def bump_user_version(user_id: int) -> None:
-    """Incrémente la version pour invalider les listings cachés de cet user."""
+    """Incrémente la version pour invalider TOUS les listings cachés de cet user.
+
+    Legacy nuclear invalidation. Préfère bump_namespace_version() pour des
+    invalidations ciblées (Wave 15).
+    """
     key = _make_key("user_version", str(user_id))
     r = _get_redis()
     if r:
         try:
             r.incr(key)
-            r.expire(key, 86400 * 30)  # TTL 30j pour ne pas garder indéfiniment
+            r.expire(key, 86400 * 30)
+            return
+        except Exception:
+            pass
+    current = _memory_cache.get(key) or 0
+    _memory_cache.set(key, int(current) + 1, ttl=86400 * 30)
+
+
+# PERF Wave15: invalidation ciblée par namespace
+# Avant : toute mutation track → bump_user_version → invalide TOUT (tracks, sets,
+#         playlists, favorites, notifications). À 10k+ tracks par user, un seul
+#         edit de track jette des dizaines de Mo de cache Redis.
+# Après : la mutation invalide UNIQUEMENT son namespace.
+#   - track POST/PATCH/DELETE → bump_namespace_version(user_id, "tracks")
+#   - set POST/PATCH/DELETE   → bump_namespace_version(user_id, "sets")
+#   - etc.
+# Les cache_keys incluent désormais get_namespace_version(user_id, ns) au lieu
+# de get_user_version(user_id).
+
+def get_namespace_version(user_id: int, namespace: str) -> int:
+    """Retourne la version courante du cache-key space (user, namespace)."""
+    key = _make_key(f"nsv:{namespace}", str(user_id))
+    r = _get_redis()
+    if r:
+        try:
+            v = r.get(key)
+            if v:
+                return int(v)
+        except Exception:
+            pass
+    v = _memory_cache.get(key)
+    return int(v) if v else 0
+
+
+def bump_namespace_version(user_id: int, namespace: str) -> None:
+    """Incrémente la version pour ce (user, namespace) — invalidation ciblée."""
+    key = _make_key(f"nsv:{namespace}", str(user_id))
+    r = _get_redis()
+    if r:
+        try:
+            r.incr(key)
+            r.expire(key, 86400 * 30)
             return
         except Exception:
             pass

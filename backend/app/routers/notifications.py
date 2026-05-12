@@ -66,8 +66,9 @@ async def list_notifications(
     Invalidation via bump_user_version sur mark-read/delete.
     """
     # Cache lookup
-    from app.services.cache_service import cache_get, cache_set, get_user_version
-    _uver = get_user_version(user.id)
+    # PERF Wave15: namespace version au lieu de user_version
+    from app.services.cache_service import cache_get, cache_set, get_namespace_version
+    _uver = get_namespace_version(user.id, "notifications")
     _ckey = f"{user.id}:list:v{_uver}:p{page}_s{page_size}"
     _cached = cache_get("notifications", _ckey)
     if _cached is not None:
@@ -153,8 +154,8 @@ async def mark_as_read(
     notification.read = True
     db.commit()
     try:
-        from app.services.cache_service import bump_user_version
-        bump_user_version(user.id)
+        from app.services.cache_service import bump_namespace_version
+        bump_namespace_version(user.id, "notifications")
     except Exception:
         pass
 
@@ -181,8 +182,8 @@ async def mark_all_as_read(
     ).update({"read": True})
     db.commit()
     try:
-        from app.services.cache_service import bump_user_version
-        bump_user_version(user.id)
+        from app.services.cache_service import bump_namespace_version
+        bump_namespace_version(user.id, "notifications")
     except Exception:
         pass
 
@@ -221,8 +222,8 @@ async def delete_notification(
     db.delete(notification)
     db.commit()
     try:
-        from app.services.cache_service import bump_user_version
-        bump_user_version(user.id)
+        from app.services.cache_service import bump_namespace_version
+        bump_namespace_version(user.id, "notifications")
     except Exception:
         pass
 

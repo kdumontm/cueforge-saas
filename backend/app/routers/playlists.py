@@ -121,8 +121,9 @@ def list_playlists(
     current_user: User = Depends(get_current_user),
 ):
     # PERF Wave6: Redis cache 15s (clé = user + version + parent_id)
-    from app.services.cache_service import cache_get, cache_set, get_user_version
-    _uver = get_user_version(current_user.id)
+    # PERF Wave15: namespace version au lieu de user_version (invalidation ciblée)
+    from app.services.cache_service import cache_get, cache_set, get_namespace_version
+    _uver = get_namespace_version(current_user.id, "playlists")
     _ckey = f"{current_user.id}:list:v{_uver}:p{parent_id if parent_id is not None else 'root'}"
     _cached = cache_get("playlists", _ckey)
     if _cached is not None:
@@ -183,8 +184,8 @@ def create_playlist(
     db.add(pl)
     db.commit()
     try:
-        from app.services.cache_service import bump_user_version
-        bump_user_version(current_user.id)
+        from app.services.cache_service import bump_namespace_version
+        bump_namespace_version(current_user.id, "playlists")
     except Exception:
         pass
     db.refresh(pl)
@@ -241,8 +242,8 @@ def update_playlist(
         setattr(pl, field, value)
     db.commit()
     try:
-        from app.services.cache_service import bump_user_version
-        bump_user_version(current_user.id)
+        from app.services.cache_service import bump_namespace_version
+        bump_namespace_version(current_user.id, "playlists")
     except Exception:
         pass
     db.refresh(pl)
@@ -259,8 +260,8 @@ def delete_playlist(
     db.delete(pl)
     db.commit()
     try:
-        from app.services.cache_service import bump_user_version
-        bump_user_version(current_user.id)
+        from app.services.cache_service import bump_namespace_version
+        bump_namespace_version(current_user.id, "playlists")
     except Exception:
         pass
 
@@ -298,8 +299,8 @@ def add_tracks_to_playlist(
 
     db.commit()
     try:
-        from app.services.cache_service import bump_user_version
-        bump_user_version(current_user.id)
+        from app.services.cache_service import bump_namespace_version
+        bump_namespace_version(current_user.id, "playlists")
     except Exception:
         pass
     return get_playlist(playlist_id, db, current_user)
@@ -322,8 +323,8 @@ def remove_track_from_playlist(
     db.delete(entry)
     db.commit()
     try:
-        from app.services.cache_service import bump_user_version
-        bump_user_version(current_user.id)
+        from app.services.cache_service import bump_namespace_version
+        bump_namespace_version(current_user.id, "playlists")
     except Exception:
         pass
 
@@ -345,8 +346,8 @@ def reorder_playlist_tracks(
             entry.position = item.position
     db.commit()
     try:
-        from app.services.cache_service import bump_user_version
-        bump_user_version(current_user.id)
+        from app.services.cache_service import bump_namespace_version
+        bump_namespace_version(current_user.id, "playlists")
     except Exception:
         pass
     return {"status": "ok"}
@@ -369,8 +370,8 @@ def reorder_playlist_tracks_by_ids(
             entry.position = position
     db.commit()
     try:
-        from app.services.cache_service import bump_user_version
-        bump_user_version(current_user.id)
+        from app.services.cache_service import bump_namespace_version
+        bump_namespace_version(current_user.id, "playlists")
     except Exception:
         pass
     return {"status": "ok"}
@@ -406,8 +407,8 @@ def duplicate_playlist(
 
     db.commit()
     try:
-        from app.services.cache_service import bump_user_version
-        bump_user_version(current_user.id)
+        from app.services.cache_service import bump_namespace_version
+        bump_namespace_version(current_user.id, "playlists")
     except Exception:
         pass
     db.refresh(new_pl)

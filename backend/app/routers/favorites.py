@@ -43,8 +43,8 @@ async def toggle_favorite(
         db.delete(favorite)
         db.commit()
         try:
-            from app.services.cache_service import bump_user_version
-            bump_user_version(current_user.id)
+            from app.services.cache_service import bump_namespace_version
+            bump_namespace_version(current_user.id, "favorites")
         except Exception:
             pass
         return {"is_favorite": False, "message": "Favori supprimé"}
@@ -53,8 +53,8 @@ async def toggle_favorite(
         db.add(new_favorite)
         db.commit()
         try:
-            from app.services.cache_service import bump_user_version
-            bump_user_version(current_user.id)
+            from app.services.cache_service import bump_namespace_version
+            bump_namespace_version(current_user.id, "favorites")
         except Exception:
             pass
         return {"is_favorite": True, "message": "Favori ajouté"}
@@ -75,8 +75,9 @@ async def get_favorites(
     PERF Wave6: Redis cache 15s (invalidation via bump_user_version sur fav add/remove).
     """
     # Cache lookup
-    from app.services.cache_service import cache_get, cache_set, get_user_version
-    _uver = get_user_version(current_user.id)
+    # PERF Wave15: namespace version au lieu de user_version (invalidation ciblée)
+    from app.services.cache_service import cache_get, cache_set, get_namespace_version
+    _uver = get_namespace_version(current_user.id, "favorites")
     _ckey = f"{current_user.id}:list:v{_uver}"
     _cached = cache_get("favorites", _ckey)
     if _cached is not None:
@@ -174,8 +175,8 @@ async def remove_favorite(
     db.delete(favorite)
     db.commit()
     try:
-        from app.services.cache_service import bump_user_version
-        bump_user_version(current_user.id)
+        from app.services.cache_service import bump_namespace_version
+        bump_namespace_version(current_user.id, "favorites")
     except Exception:
         pass
     return {"message": "Favori supprimé"}

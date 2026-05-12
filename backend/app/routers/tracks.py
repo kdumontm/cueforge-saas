@@ -358,8 +358,8 @@ async def upload_track(
 
     # PERF #1.4: invalidation cache listing (upload → nouveau track visible)
     try:
-        from app.services.cache_service import bump_user_version
-        bump_user_version(current_user.id)
+        from app.services.cache_service import bump_namespace_version
+        bump_namespace_version(current_user.id, "tracks")
     except Exception:
         pass
 
@@ -1415,8 +1415,8 @@ async def upload_track(
 
     # PERF #1.4: invalidation cache listing (upload → nouveau track visible)
     try:
-        from app.services.cache_service import bump_user_version
-        bump_user_version(current_user.id)
+        from app.services.cache_service import bump_namespace_version
+        bump_namespace_version(current_user.id, "tracks")
     except Exception:
         pass
 
@@ -4383,10 +4383,10 @@ def list_tracks(
     # à 500 (assez pour un DJ sérieux, mais évite un DoS via limit=99999).
     limit = min(limit, 500)
 
-    # PERF #1.4: cache Redis 30s sur les listings (clef = user + params + version).
-    # Invalidation via bump_user_version sur POST/PATCH/DELETE tracks.
-    from app.services.cache_service import cache_get, cache_set, get_user_version
-    _uver = get_user_version(current_user.id)
+    # PERF Wave15: cache Redis 30s (clef = user + params + NAMESPACE version).
+    # Invalidation ciblée : seules les mutations tracks bump "tracks" namespace.
+    from app.services.cache_service import cache_get, cache_set, get_namespace_version
+    _uver = get_namespace_version(current_user.id, "tracks")
     cache_params = (
         f"v{_uver}_p{page}_l{limit}_g{genre or ''}_a{artist or ''}"
         f"_bm{bpm_min or ''}_bM{bpm_max or ''}_k{key or ''}_em{energy_min or ''}"
@@ -4655,8 +4655,8 @@ def delete_track(
     safe_commit(db)
     # PERF #1.4: invalidation cache listing
     try:
-        from app.services.cache_service import bump_user_version
-        bump_user_version(current_user.id)
+        from app.services.cache_service import bump_namespace_version
+        bump_namespace_version(current_user.id, "tracks")
     except Exception:
         pass
     return {"status": "deleted", "track_id": track_id}
@@ -4772,8 +4772,8 @@ def batch_delete_tracks(
     safe_commit(db)
     # PERF #1.4: invalidation cache listing
     try:
-        from app.services.cache_service import bump_user_version
-        bump_user_version(current_user.id)
+        from app.services.cache_service import bump_namespace_version
+        bump_namespace_version(current_user.id, "tracks")
     except Exception:
         pass
     return {"status": "deleted", "deleted_count": len(deleted_ids), "deleted_ids": deleted_ids}
@@ -4843,8 +4843,8 @@ def purge_all_my_tracks(
 
     # Invalidation cache
     try:
-        from app.services.cache_service import bump_user_version
-        bump_user_version(current_user.id)
+        from app.services.cache_service import bump_namespace_version
+        bump_namespace_version(current_user.id, "tracks")
     except Exception:
         pass
 
@@ -4966,8 +4966,8 @@ def update_track_metadata(
     db.refresh(track)
     # PERF #1.4: invalidation cache listing
     try:
-        from app.services.cache_service import bump_user_version
-        bump_user_version(current_user.id)
+        from app.services.cache_service import bump_namespace_version
+        bump_namespace_version(current_user.id, "tracks")
     except Exception:
         pass
     return TrackResponse.model_validate(track)
