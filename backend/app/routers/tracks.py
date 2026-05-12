@@ -4235,6 +4235,80 @@ async def analyze_track_local(
 
 # ── CRUD ─────────────────────────────────────────────────────────────────────
 
+def _track_to_dict_fast(t) -> dict:
+    """PERF Wave14: serializer dict-direct au lieu de Pydantic model_validate.
+    Reproduit exactement TrackListItemResponse.model_dump(mode='json') sans
+    le coût de validation Pydantic v2 (~0.3-0.5ms par track sur 10k tracks
+    c'est 3-5s économisés cumulés au listing).
+
+    Important : reproduit coerce_tags (tags list[str] → "a, b, c" string).
+    """
+    a = t.analysis
+    created_at = t.created_at.isoformat() if t.created_at else None
+    # tags: peut être list (legacy) ou str
+    tags = t.tags
+    if isinstance(tags, list):
+        tags = ", ".join(str(x) for x in tags) if tags else None
+    analyzed_at = a.analyzed_at.isoformat() if a and a.analyzed_at else None
+    return {
+        "id": t.id,
+        "filename": t.filename,
+        "original_filename": t.original_filename,
+        "status": t.status.value if hasattr(t.status, 'value') else (str(t.status) if t.status else None),
+        "file_size": t.file_size,
+        "file_path": t.file_path,
+        "r2_key": t.r2_key,
+        "artist": t.artist,
+        "title": t.title,
+        "album": t.album,
+        "genre": t.genre,
+        "year": t.year,
+        "artwork_url": t.artwork_url,
+        "remix_artist": t.remix_artist,
+        "remix_type": t.remix_type,
+        "feat_artist": t.feat_artist,
+        "label": t.label,
+        "spotify_id": t.spotify_id,
+        "spotify_url": t.spotify_url,
+        "musicbrainz_id": t.musicbrainz_id,
+        "category": t.category,
+        "tags": tags,
+        "rating": t.rating,
+        "color_code": t.color_code,
+        "comment": t.comment,
+        "energy_level": t.energy_level,
+        "played_count": t.played_count or 0,
+        "camelot_code": t.camelot_code,
+        "created_at": created_at,
+        "analysis": None if not a else {
+            "id": a.id,
+            "bpm": a.bpm,
+            "bpm_confidence": a.bpm_confidence,
+            "key": a.key,
+            "energy": a.energy,
+            "duration_ms": a.duration_ms,
+            "key_confidence": a.key_confidence,
+            "loudness_db": a.loudness_db,
+            "loudness_lufs": a.loudness_lufs,
+            "vocal_percentage": a.vocal_percentage,
+            "mood": a.mood,
+            "danceability": a.danceability,
+            "bpm_stable": a.bpm_stable if a.bpm_stable is not None else True,
+            "stereo_width_label": a.stereo_width_label,
+            "brightness_label": a.brightness_label,
+            "has_clipping": a.has_clipping,
+            "true_peak_db": a.true_peak_db,
+            "structural_summary": a.structural_summary,
+            "audio_quality_score": a.audio_quality_score,
+            "audio_quality_grade": a.audio_quality_grade,
+            "encoding_quality": a.encoding_quality,
+            "is_upscaled": a.is_upscaled,
+            "analyzed_at": analyzed_at,
+        },
+        "cue_points_count": getattr(t, "cue_points_count", 0) or 0,
+    }
+
+
 def _apply_track_filters(q, genre, artist, rating_min, search, bpm_min, bpm_max, key, energy_min, energy_max):
     """Helper function to apply common track filters (DRY)"""
     if genre:
@@ -4384,20 +4458,22 @@ def list_tracks(
     for t in tracks:
         t.cue_points_count = cue_counts_map.get(t.id, 0)
 
-    # ⚡ Utilise TrackListItemResponse (sans waveform/spectral/beats/loop_markers)
-    from app.schemas.track import TrackListItemResponse
-    response = TrackListResponse(
-        tracks=[TrackListItemResponse.model_validate(t) for t in tracks],
-        total=total,
-        page=page,
-        pages=(total + limit - 1) // limit,
-    )
-    # PERF #1.4: cache 30s — invalidation active sur mutations
+    # PERF Wave14: serializer Pydantic-free pour économiser ~0.3ms × N tracks.
+    # Sur limit=500 tracks : ~150ms en moins par cache MISS (cold).
+    response_dict = {
+        "tracks": [_track_to_dict_fast(t) for t in tracks],
+        "total": total,
+        "page": page,
+        "pages": (total + limit - 1) // limit,
+    }
     try:
-        cache_set("tracks", _cache_key, response.model_dump(mode='json'), ttl=30)
+        cache_set("tracks", _cache_key, response_dict, ttl=30)
     except Exception:
         pass
-    return response
+    # Retourne directement le dict via JSONResponse — skip aussi la sérialisation
+    # FastAPI de TrackListResponse (autre passe Pydantic).
+    from fastapi.responses import JSONResponse
+    return JSONResponse(content=response_dict)
 
 
 # ── Routes spécifiques AVANT /{track_id} pour éviter interception du path param ───

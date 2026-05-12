@@ -6,7 +6,8 @@ from app.models.favorite import Favorite
 from app.models.track import Track
 from app.models.user import User
 from app.middleware.auth import get_current_user
-from app.schemas.track import TrackListItemResponse
+from app.schemas.track import TrackListItemResponse  # legacy import, kept for compatibility
+from app.routers.tracks import _track_to_dict_fast  # PERF Wave14
 
 router = APIRouter()
 
@@ -114,11 +115,11 @@ async def get_favorites(
         )
         cue_counts_map = {tid: cnt for tid, cnt in cue_rows}
 
-    # Utilise TrackListItemResponse pour garantir la même shape que /tracks
+    # PERF Wave14: serializer Pydantic-free (même shape que /tracks)
     tracks_data = []
     for track, favorited_at in rows:
         track.cue_points_count = cue_counts_map.get(track.id, 0)
-        item = TrackListItemResponse.model_validate(track).model_dump(mode='json')
+        item = _track_to_dict_fast(track)
         item['favorited_at'] = favorited_at.isoformat() if favorited_at else None
         tracks_data.append(item)
 
