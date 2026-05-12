@@ -364,6 +364,35 @@ def run_migrations(engine: Engine) -> None:
 
             conn.commit()
 
+            # ── Pass 3 (Wave11): Hot path indexes idempotents ─────────────────
+            # CREATE INDEX IF NOT EXISTS — sécuritaire sur PostgreSQL, no-op si déjà créé.
+            # Cible : les listes user-scoped que /tracks, /favorites, /sets, /playlists,
+            # /notifications hit à chaque pageload. Sur 124 tracks ça change rien, mais
+            # quand on passera à 10k+ tracks par user ça évite un seq scan.
+            HOT_INDEXES = [
+                # tracks : filtre principal sur user_id, tri secondaire created_at desc
+                "CREATE INDEX IF NOT EXISTS ix_tracks_user_created ON tracks (user_id, created_at DESC)",
+                # tracks : filtre status pour les polls /status-stream
+                "CREATE INDEX IF NOT EXISTS ix_tracks_user_status ON tracks (user_id, status)",
+                # favorites : lookup par user
+                "CREATE INDEX IF NOT EXISTS ix_favorites_user ON favorites (user_id, created_at DESC)",
+                # notifications : lookup par user trié par date desc
+                "CREATE INDEX IF NOT EXISTS ix_notifications_user_created ON notifications (user_id, created_at DESC)",
+                # cue_points : already indexed via FK normally, but composite for analyze.html
+                "CREATE INDEX IF NOT EXISTS ix_cue_points_track ON cue_points (track_id)",
+                # play_history : lookup par user récent (stats/heatmap)
+                "CREATE INDEX IF NOT EXISTS ix_play_history_user_at ON play_history (user_id, played_at DESC)",
+            ]
+            for sql in HOT_INDEXES:
+                try:
+                    conn.execute(text(sql))
+                    logger.info(f"Index check OK: {sql.split('IF NOT EXISTS')[1].split('ON')[0].strip()}")
+                except Exception as e:
+                    # Si la table n'existe pas (pas encore migrée) ou autre, on log et continue
+                    logger.warning(f"Index creation skipped: {sql[:60]}... → {e}")
+
+            conn.commit()
+
             # ── Indexes (CREATE INDEX IF NOT EXISTS) ─────────────────────────
             INDEXES = [
                 # Tracks — performance indexes
