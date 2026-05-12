@@ -369,19 +369,50 @@ def run_migrations(engine: Engine) -> None:
             # Cible : les listes user-scoped que /tracks, /favorites, /sets, /playlists,
             # /notifications hit à chaque pageload. Sur 124 tracks ça change rien, mais
             # quand on passera à 10k+ tracks par user ça évite un seq scan.
+            # ENABLE pg_trgm extension for trigram indexes (fast ILIKE)
+            try:
+                conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+                conn.commit()
+                logger.info("pg_trgm extension ready")
+            except Exception as e:
+                logger.warning(f"pg_trgm extension skipped: {e}")
+
             HOT_INDEXES = [
                 # tracks : filtre principal sur user_id, tri secondaire created_at desc
                 "CREATE INDEX IF NOT EXISTS ix_tracks_user_created ON tracks (user_id, created_at DESC)",
                 # tracks : filtre status pour les polls /status-stream
                 "CREATE INDEX IF NOT EXISTS ix_tracks_user_status ON tracks (user_id, status)",
+                # tracks : sort par titre/artist/album (utilisé par /tracks?sort_by=title)
+                "CREATE INDEX IF NOT EXISTS ix_tracks_user_title ON tracks (user_id, title)",
+                "CREATE INDEX IF NOT EXISTS ix_tracks_user_artist ON tracks (user_id, artist)",
+                "CREATE INDEX IF NOT EXISTS ix_tracks_user_rating ON tracks (user_id, rating) WHERE rating IS NOT NULL",
+                # tracks : genre filter (ILIKE %genre% sur 10k+ tracks)
+                "CREATE INDEX IF NOT EXISTS ix_tracks_genre_trgm ON tracks USING gin (genre gin_trgm_ops) WHERE genre IS NOT NULL",
+                # tracks : full-text search trigram sur title/artist/original_filename (Wave 13)
+                # pg_trgm + GIN = ILIKE '%term%' devient ~10ms au lieu de ~800ms sur 10k tracks
+                "CREATE INDEX IF NOT EXISTS ix_tracks_title_trgm ON tracks USING gin (title gin_trgm_ops) WHERE title IS NOT NULL",
+                "CREATE INDEX IF NOT EXISTS ix_tracks_artist_trgm ON tracks USING gin (artist gin_trgm_ops) WHERE artist IS NOT NULL",
+                "CREATE INDEX IF NOT EXISTS ix_tracks_filename_trgm ON tracks USING gin (original_filename gin_trgm_ops) WHERE original_filename IS NOT NULL",
+                # track_analysis : BPM/key/energy range filters (sur N tracks)
+                "CREATE INDEX IF NOT EXISTS ix_analysis_bpm ON track_analysis (bpm) WHERE bpm IS NOT NULL",
+                "CREATE INDEX IF NOT EXISTS ix_analysis_key ON track_analysis (key) WHERE key IS NOT NULL",
+                "CREATE INDEX IF NOT EXISTS ix_analysis_energy ON track_analysis (energy) WHERE energy IS NOT NULL",
                 # favorites : lookup par user
                 "CREATE INDEX IF NOT EXISTS ix_favorites_user ON favorites (user_id, created_at DESC)",
+                "CREATE INDEX IF NOT EXISTS ix_favorites_user_track ON favorites (user_id, track_id)",
                 # notifications : lookup par user trié par date desc
                 "CREATE INDEX IF NOT EXISTS ix_notifications_user_created ON notifications (user_id, created_at DESC)",
+                "CREATE INDEX IF NOT EXISTS ix_notifications_unread ON notifications (user_id) WHERE read_at IS NULL",
                 # cue_points : already indexed via FK normally, but composite for analyze.html
                 "CREATE INDEX IF NOT EXISTS ix_cue_points_track ON cue_points (track_id)",
                 # play_history : lookup par user récent (stats/heatmap)
                 "CREATE INDEX IF NOT EXISTS ix_play_history_user_at ON play_history (user_id, played_at DESC)",
+                # playlists : user_id + sort_order pour list_playlists
+                "CREATE INDEX IF NOT EXISTS ix_playlists_user_sort ON playlists (user_id, parent_id, sort_order)",
+                # playlist_tracks : count per playlist (utilisé pour track_count display)
+                "CREATE INDEX IF NOT EXISTS ix_playlist_tracks_playlist ON playlist_tracks (playlist_id)",
+                # dj_sets : user_id + updated_at desc (list_sets)
+                "CREATE INDEX IF NOT EXISTS ix_dj_sets_user_updated ON dj_sets (user_id, updated_at DESC)",
             ]
             for sql in HOT_INDEXES:
                 try:
