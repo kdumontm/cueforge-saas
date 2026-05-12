@@ -45,13 +45,17 @@ def _create_engine_with_retry(url: str, max_retries: int = 5, delay: float = 3.0
         # OPT #31: Optimized pool settings
         # PERF #1.1: pool_pre_ping désactivé — économise ~100-200ms par request sur Railway.
         # pool_recycle=1800 (30min) suffit à éviter les connexions mortes côté Railway.
+        # PERF Wave16: pool size augmenté pour scale concurrent
+        # 25 base + 50 overflow = 75 connexions max sous spike (vs 45 avant).
+        # Railway PG par défaut accepte 100 connexions, on garde 25 de marge
+        # pour les migrations + connexions admin.
         engine = create_engine(
             url,
-            pool_pre_ping=False,      # désactivé pour économiser le SELECT 1 avant chaque query
-            pool_recycle=1800,         # 30 min: recycle les connexions toutes les 30 min
-            pool_size=15,             # Base size for connection pool
-            max_overflow=30,          # Headroom for connection spikes
-            pool_timeout=20,          # Timeout for waiting connections
+            pool_pre_ping=False,
+            pool_recycle=1800,
+            pool_size=25,             # PERF Wave16: 15 → 25
+            max_overflow=50,          # PERF Wave16: 30 → 50 (spike concurrent)
+            pool_timeout=20,
             connect_args={"connect_timeout": 10},
             **common_kwargs,
         )

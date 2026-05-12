@@ -4383,22 +4383,27 @@ def list_tracks(
     # à 500 (assez pour un DJ sérieux, mais évite un DoS via limit=99999).
     limit = min(limit, 500)
 
-    # PERF Wave15: cache Redis 30s (clef = user + params + NAMESPACE version).
-    # Invalidation ciblée : seules les mutations tracks bump "tracks" namespace.
+    # PERF Wave15+17: cache Redis 30s, mais SELECTIVE — on cache uniquement les
+    # requêtes "courantes" pour ne pas exploser Redis sur 10k+ users × 10k+ tracks.
+    # Critères de cache :
+    #   - limit <= 200 (au-delà le payload > 100 KB devient gros à cacher)
+    #   - pas de search (résultats trop variés = miss rate ~100%, garbage cache)
+    # Le rate "courant" qui beneficie : page=1, limit=20-100, filtres simples.
     from app.services.cache_service import cache_get, cache_set, get_namespace_version
-    _uver = get_namespace_version(current_user.id, "tracks")
-    cache_params = (
-        f"v{_uver}_p{page}_l{limit}_g{genre or ''}_a{artist or ''}"
-        f"_bm{bpm_min or ''}_bM{bpm_max or ''}_k{key or ''}_em{energy_min or ''}"
-        f"_eM{energy_max or ''}_r{rating_min or ''}_s{search or ''}_{sort_by}_{sort_dir}"
-    )
-    _cache_key = f"{current_user.id}:list:{cache_params}"
-    _cached = cache_get("tracks", _cache_key)
-    if _cached:
-        # PERF Wave7: JSONResponse pour skipper la re-validation Pydantic
-        # (sur limit=500 c'est ~100-200ms de Pydantic en moins par cache hit)
-        from fastapi.responses import JSONResponse
-        return JSONResponse(content=_cached)
+    _cache_eligible = (limit <= 200 and not search)
+    _cache_key = None
+    if _cache_eligible:
+        _uver = get_namespace_version(current_user.id, "tracks")
+        cache_params = (
+            f"v{_uver}_p{page}_l{limit}_g{genre or ''}_a{artist or ''}"
+            f"_bm{bpm_min or ''}_bM{bpm_max or ''}_k{key or ''}_em{energy_min or ''}"
+            f"_eM{energy_max or ''}_r{rating_min or ''}_{sort_by}_{sort_dir}"
+        )
+        _cache_key = f"{current_user.id}:list:{cache_params}"
+        _cached = cache_get("tracks", _cache_key)
+        if _cached:
+            from fastapi.responses import JSONResponse
+            return JSONResponse(content=_cached)
 
     # ⚡ Build base query WITH filters but WITHOUT eager loading (for count)
     q = db.query(Track).filter(Track.user_id == current_user.id)
@@ -4466,12 +4471,15 @@ def list_tracks(
         "page": page,
         "pages": (total + limit - 1) // limit,
     }
-    try:
-        cache_set("tracks", _cache_key, response_dict, ttl=30)
-    except Exception:
-        pass
-    # Retourne directement le dict via JSONResponse — skip aussi la sérialisation
-    # FastAPI de TrackListResponse (autre passe Pydantic).
+    if _cache_eligible and _cache_key:
+        # Cap size — ne cache pas les réponses > 100 KB JSON (très rare avec limit<=200)
+        import json as _json
+        try:
+            payload_size = len(_json.dumps(response_dict, default=str))
+            if payload_size <= 100_000:  # ~100 KB
+                cache_set("tracks", _cache_key, response_dict, ttl=30)
+        except Exception:
+            pass
     from fastapi.responses import JSONResponse
     return JSONResponse(content=response_dict)
 
