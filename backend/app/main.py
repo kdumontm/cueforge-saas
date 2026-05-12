@@ -811,8 +811,11 @@ def health_check():
 # Add Brotli compression middleware for better compression (if available)
 try:
     from brotli_asgi import BrotliMiddleware
-    app.add_middleware(BrotliMiddleware, minimum_size=500)
-    logger.info("✅ Brotli compression enabled")
+    # PERF Wave10: quality 4 (défaut) → 6. Sur JSON c'est ~15% de moins de bytes
+    # pour ~10% de CPU en plus. Trade favorable car la JSON dominante et notre
+    # CPU n'est jamais saturé sur les routes API.
+    app.add_middleware(BrotliMiddleware, minimum_size=500, quality=6)
+    logger.info("✅ Brotli compression enabled (quality=6)")
 except ImportError:
     logger.warning("⚠️  starlette-brotli not installed, using GZip only")
     pass
