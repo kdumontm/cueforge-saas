@@ -38,17 +38,65 @@
   });
 })();
 
-// -------- Layout editor loader (admin-only, toutes les pages) --------
-// Charge /v4/layout-editor.js en async pour permettre à Kevin de redimensionner /
-// cacher / réordonner les blocs de n'importe quelle page v4 (Ctrl+Shift+E ou ?edit=1).
-// Stockage 100% localStorage : seul son navigateur voit les overrides.
-(function loadLayoutEditor(){
-  try {
-    const s = document.createElement('script');
-    s.src = '/v4/layout-editor.js?v=20260423-v1';
-    s.async = true;
-    (document.head || document.documentElement).appendChild(s);
-  } catch(_){}
+// -------- Layout editor — LAZY-loaded (Wave12) --------
+// Avant : 24KB de JS chargé sur chaque page pour tous les users alors que
+// seul Kevin (admin) édite ses layouts.
+// Après : on attend qu'il déclenche réellement le mode édition pour charger.
+//   - ?edit=1 dans l'URL → load immédiat
+//   - localStorage 'cf_layout_editor_enabled' déjà set → load
+//   - Ctrl+Shift+E (raccourci) → load on-demand
+//   - Les overrides de layout sauvegardés s'appliquent au load via une variante
+//     allégée embarquée ici (pas besoin du full editor pour les appliquer).
+(function lazyLayoutEditor(){
+  const LS_KEY = 'cf_layout_v1';
+  const TOGGLE_KEY = 'cf_layout_editor_enabled';
+  let _loaded = false;
+  function loadEditor(){
+    if (_loaded) return;
+    _loaded = true;
+    try {
+      const s = document.createElement('script');
+      s.src = '/v4/layout-editor.js?v=20260423-v1';
+      s.async = true;
+      (document.head || document.documentElement).appendChild(s);
+    } catch(_){}
+  }
+  // ── Apply existing layout overrides (lightweight, no editor needed) ──
+  function applyOverrides(){
+    try {
+      const all = JSON.parse(localStorage.getItem(LS_KEY) || '{}') || {};
+      const pageKey = location.pathname.replace(/\/+$/,'') || '/';
+      const pageData = all[pageKey];
+      if (!pageData) return;
+      for (const [selector, props] of Object.entries(pageData)){
+        const el = document.querySelector(selector);
+        if (!el) continue;
+        if (props.hidden) el.style.display = 'none';
+        if (props.width)  el.style.width  = props.width;
+        if (props.height) el.style.height = props.height;
+        if (props.order)  el.style.order  = props.order;
+      }
+    } catch(_){}
+  }
+  // Triggers de chargement réel
+  if (location.search.includes('edit=1')) {
+    loadEditor();
+  } else if (localStorage.getItem(TOGGLE_KEY) === '1') {
+    loadEditor();
+  } else {
+    // Listener pour Ctrl+Shift+E
+    document.addEventListener('keydown', function(e){
+      if (e.ctrlKey && e.shiftKey && (e.key === 'E' || e.key === 'e')){
+        loadEditor();
+      }
+    }, { once: false });
+    // Appliquer les overrides lights tout de suite (sans éditeur)
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', applyOverrides);
+    } else {
+      applyOverrides();
+    }
+  }
 })();
 
 // -------- Theme + accent boot (toutes les pages) --------
