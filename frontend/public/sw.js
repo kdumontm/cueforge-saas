@@ -12,7 +12,7 @@
 // 🔴 2026-04-27 : bump v6 → v7 pour purger l'ancienne version de admin.html, analyze.html,
 //   shared.js et shared.css après la grosse session de fixes (Dev FF/GG/HH + manager).
 //   Kevin disait "je vois pas les modifs" → SW servait encore les versions du 23/04.
-const CACHE_NAME = 'trackcue-v36';
+const CACHE_NAME = 'trackcue-v37';
 const SWR_CACHE_NAME = 'trackcue-swr-v5';
 const STATIC_ASSETS = [
   '/manifest.json',
@@ -47,7 +47,7 @@ const CACHE_BLACKLIST = [
   'trackcue-v13','trackcue-v14','trackcue-v15','trackcue-v16','trackcue-v17','trackcue-v18',
   'trackcue-v19','trackcue-v20','trackcue-v21','trackcue-v22','trackcue-v23','trackcue-v24',
   'trackcue-v25','trackcue-v26','trackcue-v27','trackcue-v28','trackcue-v29','trackcue-v30',
-  'trackcue-v31','trackcue-v32','trackcue-v33','trackcue-v34','trackcue-v35',
+  'trackcue-v31','trackcue-v32','trackcue-v33','trackcue-v34','trackcue-v35','trackcue-v36',
   'trackcue-swr-v1','trackcue-swr-v2','trackcue-swr-v3','trackcue-swr-v4',
 ];
 self.addEventListener('activate', (event) => {

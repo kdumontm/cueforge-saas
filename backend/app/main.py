@@ -1418,6 +1418,7 @@ def _safe_mount(module_path: str, prefix: str = "", tags: list | None = None,
 # Core routers
 # ⚠️ duplicates + compare + organization doivent être montés AVANT tracks pour éviter
 # que /{track_id} intercepte /duplicates, /compare, /tracks/categories, /tracks/tags → 422
+_safe_mount("app.routers.rum", "/api/v1", ["rum"])  # PERF Wave21: RUM endpoints
 _safe_mount("app.routers.duplicates", tags=["duplicates"])
 _safe_mount("app.routers.compare", "/api/v1", ["compare"])
 # organization définit /tracks/categories et /tracks/tags avec son propre prefix /api/v1 —

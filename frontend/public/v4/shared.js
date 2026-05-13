@@ -99,6 +99,87 @@
   }
 })();
 
+
+// -------- RUM beacon (Wave 21) — envoie p50/p95 réels au backend --------
+// Utilise PerformanceObserver pour capter resource timings + navigation timing.
+// Envoie via navigator.sendBeacon() (non-bloquant, marche même au unload).
+// Sample rate 10% pour ne pas spammer le backend si trafic intense.
+(function rumBeacon(){
+  if (!('PerformanceObserver' in window)) return;
+  // Sample 10% des sessions
+  try {
+    var SK = 'cf_rum_session';
+    var sampled = sessionStorage.getItem(SK);
+    if (!sampled) {
+      sampled = Math.random() < 0.10 ? '1' : '0';
+      sessionStorage.setItem(SK, sampled);
+    }
+    if (sampled !== '1') return;
+  } catch(_) { return; }
+
+  var pagePath = (location.pathname || '/').split('?')[0];
+  var device = (window.innerWidth < 768) ? 'mobile' : 'desktop';
+
+  function send(payload){
+    try {
+      var blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+      navigator.sendBeacon('/api/v1/rum', blob);
+    } catch(_) { /* fail silent */ }
+  }
+
+  // Resource timings (API calls /api/v1/*)
+  try {
+    var ro = new PerformanceObserver(function(list){
+      list.getEntries().forEach(function(e){
+        var url = e.name || '';
+        if (url.indexOf('/api/v1/') === -1) return;
+        if (url.indexOf('/api/v1/rum') !== -1) return; // skip self
+        // Parse Server-Timing si exposé
+        var serverMs = null;
+        try {
+          var st = e.serverTiming && e.serverTiming[0];
+          if (st && st.duration) serverMs = Math.round(st.duration * 10) / 10;
+        } catch(_){}
+        var pathPart = url.replace(/^https?:\/\/[^/]+/, '').split('?')[0];
+        send({
+          path: pathPart,
+          method: 'GET',  // approximation — PerformanceResourceTiming ne donne pas la méthode
+          server_ms: serverMs,
+          total_ms: Math.round(e.duration * 10) / 10,
+          ttfb_ms: e.responseStart && e.requestStart ? Math.round((e.responseStart - e.requestStart) * 10) / 10 : null,
+          page: pagePath,
+          device: device,
+        });
+      });
+    });
+    ro.observe({ type: 'resource', buffered: true });
+  } catch(_){}
+
+  // Navigation timing + FCP + LCP (1 fois au load)
+  function sendNavMetrics(){
+    try {
+      var nav = performance.getEntriesByType('navigation')[0];
+      var paints = performance.getEntriesByType('paint');
+      var fcp = paints.find(function(p){ return p.name === 'first-contentful-paint'; });
+      send({
+        path: pagePath,
+        method: 'NAV',
+        total_ms: nav ? Math.round(nav.duration * 10) / 10 : null,
+        ttfb_ms: nav ? Math.round(nav.responseStart * 10) / 10 : null,
+        dcl_ms: nav ? Math.round(nav.domContentLoadedEventEnd * 10) / 10 : null,
+        fcp_ms: fcp ? Math.round(fcp.startTime * 10) / 10 : null,
+        page: pagePath,
+        device: device,
+      });
+    } catch(_){}
+  }
+  if (document.readyState === 'complete') {
+    setTimeout(sendNavMetrics, 2000);
+  } else {
+    window.addEventListener('load', function(){ setTimeout(sendNavMetrics, 2000); });
+  }
+})();
+
 // -------- Theme + accent boot (toutes les pages) --------
 // Lit trackcue_settings_v1 et applique data-theme + --amber AVANT tout render.
 // Sans ce boot, switcher de thème dans /settings ne se voyait jamais ailleurs.
