@@ -235,8 +235,11 @@ async def suggest_next_track(
         if not current_track:
             raise HTTPException(status_code=404, detail="Current track not found")
 
-        # Only consider tracks owned by the current user AND analysed
-        candidates = (
+        # PERF Wave23 : pré-filtre BPM en DB pour réduire la candidate pool à 10k+ tracks.
+        # Avant : .limit(50) sur 10k tracks = 50 random tracks → mauvais matches.
+        # Après : WHERE bpm BETWEEN (current-15, current+15) + limit(50) = vraies candidates.
+        ref_bpm = current_track.analysis.bpm if current_track.analysis and current_track.analysis.bpm else None
+        candidates_q = (
             db.query(Track)
             .options(selectinload(Track.analysis))
             .join(TrackAnalysis, TrackAnalysis.track_id == Track.id)
@@ -244,9 +247,13 @@ async def suggest_next_track(
                 Track.user_id == current_user.id,
                 Track.id != request.current_track_id,
             )
-            .limit(50)
-            .all()
         )
+        if ref_bpm is not None:
+            candidates_q = candidates_q.filter(
+                TrackAnalysis.bpm >= ref_bpm - 15,
+                TrackAnalysis.bpm <= ref_bpm + 15,
+            )
+        candidates = candidates_q.limit(50).all()
 
         if not candidates:
             raise HTTPException(status_code=400, detail="Aucun autre morceau analysé dans votre bibliothèque.")

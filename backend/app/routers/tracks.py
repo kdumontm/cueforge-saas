@@ -4380,6 +4380,11 @@ def _apply_track_filters(q, genre, artist, rating_min, search, bpm_min, bpm_max,
 def list_tracks(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=500),
+    # PERF Wave22 : cursor pagination pour deep pages (>50). Avec ?cursor=<track_id>
+    # on remplace OFFSET (qui scan toutes les rows précédentes même avec index) par
+    # WHERE id < cursor (lookup direct via PK index). Compatible avec page=N
+    # pour les premières pages.
+    cursor: Optional[int] = Query(None, description="Track ID cursor pour deep pagination (alternative à page)"),
     # v2: Advanced filters
     genre: Optional[str] = Query(None),
     artist: Optional[str] = Query(None),
@@ -4463,8 +4468,17 @@ def list_tracks(
     else:
         q = q.order_by(nullslast(sort_col.desc()))
 
-    offset = (page - 1) * limit
-    tracks = q.offset(offset).limit(limit).all()
+    # PERF Wave22: cursor pagination si fourni (bypass OFFSET coûteux sur deep pages)
+    if cursor is not None:
+        # WHERE id < cursor ORDER BY id DESC LIMIT N : 0 row scan inutile
+        if sort_dir == "asc":
+            q = q.filter(Track.id > cursor)
+        else:
+            q = q.filter(Track.id < cursor)
+        tracks = q.limit(limit).all()
+    else:
+        offset = (page - 1) * limit
+        tracks = q.offset(offset).limit(limit).all()
 
     # PERF #1.3: cue_points_count via agrégation (1 query groupée au lieu de selectinload)
     from app.models.track import CuePoint
@@ -4483,11 +4497,14 @@ def list_tracks(
 
     # PERF Wave14: serializer Pydantic-free pour économiser ~0.3ms × N tracks.
     # Sur limit=500 tracks : ~150ms en moins par cache MISS (cold).
+    # PERF Wave22: expose next_cursor pour permettre au frontend d'enchaîner les pages
+    next_cursor = tracks[-1].id if tracks and len(tracks) == limit else None
     response_dict = {
         "tracks": [_track_to_dict_fast(t) for t in tracks],
         "total": total,
         "page": page,
         "pages": (total + limit - 1) // limit,
+        "next_cursor": next_cursor,
     }
     if _cache_eligible and _cache_key:
         # Cap size — ne cache pas les réponses > 100 KB JSON (très rare avec limit<=200)
