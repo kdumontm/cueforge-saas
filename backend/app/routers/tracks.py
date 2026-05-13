@@ -360,6 +360,7 @@ async def upload_track(
     try:
         from app.services.cache_service import bump_namespace_version
         bump_namespace_version(current_user.id, "tracks")
+        bump_namespace_version(current_user.id, "analytics")
     except Exception:
         pass
 
@@ -1417,6 +1418,7 @@ async def upload_track(
     try:
         from app.services.cache_service import bump_namespace_version
         bump_namespace_version(current_user.id, "tracks")
+        bump_namespace_version(current_user.id, "analytics")
     except Exception:
         pass
 
@@ -4681,6 +4683,7 @@ def delete_track(
     try:
         from app.services.cache_service import bump_namespace_version
         bump_namespace_version(current_user.id, "tracks")
+        bump_namespace_version(current_user.id, "analytics")
     except Exception:
         pass
     return {"status": "deleted", "track_id": track_id}
@@ -4798,6 +4801,7 @@ def batch_delete_tracks(
     try:
         from app.services.cache_service import bump_namespace_version
         bump_namespace_version(current_user.id, "tracks")
+        bump_namespace_version(current_user.id, "analytics")
     except Exception:
         pass
     return {"status": "deleted", "deleted_count": len(deleted_ids), "deleted_ids": deleted_ids}
@@ -4869,6 +4873,7 @@ def purge_all_my_tracks(
     try:
         from app.services.cache_service import bump_namespace_version
         bump_namespace_version(current_user.id, "tracks")
+        bump_namespace_version(current_user.id, "analytics")
     except Exception:
         pass
 
@@ -4992,6 +4997,7 @@ def update_track_metadata(
     try:
         from app.services.cache_service import bump_namespace_version
         bump_namespace_version(current_user.id, "tracks")
+        bump_namespace_version(current_user.id, "analytics")
     except Exception:
         pass
     return TrackResponse.model_validate(track)
