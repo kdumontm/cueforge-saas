@@ -14,7 +14,7 @@ from app.middleware.auth import get_current_user
 from app.models.user import User
 from app.models.track import Track, TrackAnalysis, TrackStatus
 from app.models.library import Playlist, DJSet
-from app.services.cache_service import cache_get, cache_set, get_user_version
+from app.services.cache_service import cache_get, cache_set, get_namespace_version
 
 router = APIRouter()
 
@@ -100,7 +100,9 @@ def get_stats_overview(
     # Check cache first (include period + user_version in cache key)
     # 🔴 PERF 2026-04-27 : user_version invalide automatiquement le cache à
     #   chaque mutation tracks (bump_user_version est appelé partout).
-    _uver = get_user_version(current_user.id)
+    # PERF Wave20: namespace_version("tracks") au lieu de user_version (qui n'est
+    # plus bumpé depuis Wave 15). Le cache invalide quand tracks change → cohérent.
+    _uver = get_namespace_version(current_user.id, "tracks")
     cache_key = f"overview:{period or 'all'}:v{_uver}"
     cached = _get_cached_user_stats(current_user.id, cache_key)
     if cached:

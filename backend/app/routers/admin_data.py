@@ -372,7 +372,16 @@ async def export_tracks(
     if status:
         query = query.filter(Track.status == status)
 
-    tracks = query.order_by(Track.created_at.desc()).all()
+    # PERF Wave20: selectinload pour éviter N+1 lazy-load sur track.analysis × N tracks
+    # Plus : cap à 50k tracks par export pour éviter OOM si admin exporte un user mega
+    from sqlalchemy.orm import selectinload as _silp
+    tracks = (
+        query
+        .options(_silp(Track.analysis))
+        .order_by(Track.created_at.desc())
+        .limit(50_000)
+        .all()
+    )
 
     # Create CSV
     output = io.StringIO()

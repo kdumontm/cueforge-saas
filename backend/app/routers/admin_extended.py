@@ -745,21 +745,32 @@ def get_feedback_stats(
     admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
-    """Get feedback statistics."""
-    total = db.query(Feedback).count()
+    """Get feedback statistics.
 
-    type_counts = db.query(Feedback.type, func.count(Feedback.id)).group_by(Feedback.type).all()
-    type_stats = {t: c for t, c in type_counts}
-
-    status_counts = []
+    PERF Wave20: merge 3 queries (total + type_counts + status_counts) en 1 seule
+    avec GROUP BY (type, status) puis aggregations en Python (≤20 rows max).
+    """
+    # 1 query qui retourne (type, status, count) — aggregations en Python sur le résultat
+    grouped = []
     try:
-        status_counts = db.query(Feedback.status, func.count(Feedback.id)).group_by(
-            Feedback.status
-        ).all()
+        grouped = db.query(
+            Feedback.type, Feedback.status, func.count(Feedback.id)
+        ).group_by(Feedback.type, Feedback.status).all()
     except Exception:
-        pass
+        # Fallback si Feedback.status n'existe pas en DB pour cause de migration
+        grouped = [(t, None, c) for t, c in (
+            db.query(Feedback.type, func.count(Feedback.id)).group_by(Feedback.type).all()
+        )]
 
-    status_stats = {s: c for s, c in status_counts} if status_counts else {}
+    total = 0
+    type_stats = {}
+    status_stats = {}
+    for t, s, c in grouped:
+        total += c
+        if t:
+            type_stats[t] = type_stats.get(t, 0) + c
+        if s:
+            status_stats[s] = status_stats.get(s, 0) + c
 
     return {
         "total": total,
