@@ -4417,8 +4417,10 @@ def list_tracks(
     _cache_key = None
     if _cache_eligible:
         _uver = get_namespace_version(current_user.id, "tracks")
+        # PERF Wave22 bug fix: cursor doit faire partie de la cache_key sinon
+        # page2 via cursor renvoie le cache de page1.
         cache_params = (
-            f"v{_uver}_p{page}_l{limit}_g{genre or ''}_a{artist or ''}"
+            f"v{_uver}_p{page}_c{cursor or ''}_l{limit}_g{genre or ''}_a{artist or ''}"
             f"_bm{bpm_min or ''}_bM{bpm_max or ''}_k{key or ''}_em{energy_min or ''}"
             f"_eM{energy_max or ''}_r{rating_min or ''}_{sort_by}_{sort_dir}"
         )
