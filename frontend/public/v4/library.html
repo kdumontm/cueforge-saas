@@ -470,7 +470,7 @@ function showEmpty(msg){
   </div>`;
 }
 
-function renderTrack(t, i){
+function renderTrack(t, i, container){
   const title = t.title || t.original_filename || t.filename || 'Untitled';
   const artist = t.artist || '—';
   const genre = t.genre || '';
@@ -539,7 +539,7 @@ function renderTrack(t, i){
       <button data-a="delete" data-tt="Supprimer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
     </div>
   `;
-  body.appendChild(row);
+  (container || body).appendChild(row);
   buildWave(row.querySelector('.lib-mini-wave'),52,seed,{envelope:(p)=>0.3+0.7*Math.abs(Math.sin(p*Math.PI*3+seed))});
 
   const chk = row.querySelector('.chk');
@@ -633,7 +633,15 @@ async function load(){
 
     body.innerHTML = '';
     if(tracks.length === 0){ showEmpty(state.query ? `Aucun résultat pour "${state.query}"` : null); }
-    else { tracks.forEach((t,i)=>renderTrack(t,i)); }
+    else {
+      // PERF Wave24: batch DOM appends via DocumentFragment.
+      // Évite N reflows + Style recalcs sur grosses listes (50-500 rows).
+      // Le renderTrack accepte un container optionnel (3e arg) pour ne pas
+      // appendChild direct dans body.
+      const frag = document.createDocumentFragment();
+      tracks.forEach((t,i)=>renderTrack(t,i,frag));
+      body.appendChild(frag);
+    }
 
     // Count + foot
     document.getElementById('count-results').textContent = `${fmt.num(total)} résultat${total>1?'s':''}`;
