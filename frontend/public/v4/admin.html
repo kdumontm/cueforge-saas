@@ -1322,7 +1322,7 @@
         if(tds[7]) tds[7].textContent = fmtSignup(u.created_at);
       });
     } catch(err){
-      body.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--pink);padding:24px">Erreur : ${err.message}</td></tr>`;
+      body.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--pink);padding:24px">Erreur : ${escapeHtml(err.message)}</td></tr>`;
     }
     updateBulkBar();
   }

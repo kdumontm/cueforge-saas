@@ -78,7 +78,8 @@ class Settings(BaseSettings):
     ENTERPRISE_MAX_CUES: int = 128
 
     # External APIs
-    ACOUSTID_API_KEY: str = "8XaBELgH"
+    # Clé via env var Railway uniquement (repo public — jamais hardcoder)
+    ACOUSTID_API_KEY: str = ""
     LASTFM_API_KEY: Optional[str] = None
     DISCOGS_TOKEN: Optional[str] = None
 
@@ -133,18 +134,17 @@ def get_settings() -> Settings:
     # ── Sécurité : bloquer le démarrage si SECRET_KEY absent en prod ──
     is_prod = settings.DATABASE_URL and "sqlite" not in settings.DATABASE_URL
     if is_prod and settings.SECRET_KEY == "trackcue-default-key-set-in-railway-env":
-        import logging, socket, hashlib
+        import logging
         logger = logging.getLogger("trackcue.security")
         logger.critical(
             "🚨 SECRET_KEY est la valeur par défaut ! "
-            "Définissez SECRET_KEY dans les variables d'environnement Railway. "
-            "Fallback sur clé dérivée du hostname — à corriger d'urgence."
+            "Définissez SECRET_KEY dans les variables d'environnement Railway."
         )
-        # Fallback sécurisé : clé dérivée du hostname + timestamp de boot
-        # Mieux que la clé par défaut, mais les tokens seront invalidés à chaque redémarrage
-        import time
-        seed = f"trackcue-{socket.gethostname()}-{int(time.time() // 86400)}"
-        derived = hashlib.sha256(seed.encode()).hexdigest()
-        object.__setattr__(settings, "SECRET_KEY", derived)
+        # Refuser de démarrer : l'ancien fallback sha256(hostname+jour) était
+        # forgeable (algorithme visible dans le repo public) → JWT falsifiables.
+        raise RuntimeError(
+            "SECRET_KEY manquante en production — définir la variable "
+            "d'environnement SECRET_KEY sur Railway avant de démarrer."
+        )
 
     return settings

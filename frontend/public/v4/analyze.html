@@ -906,7 +906,7 @@ async function loadRail(){
   } catch(err){
     if(myEpoch !== railEpoch) return;
     railCountEl.textContent = 'err';
-    railEl.innerHTML = `<div style="padding:12px;color:var(--pink);font-size:12px">Erreur : ${err.message}</div>`;
+    railEl.innerHTML = `<div style="padding:12px;color:var(--pink);font-size:12px">Erreur : ${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -984,7 +984,7 @@ function filterRailItems(searchQuery) {
   });
 
   if (filtered.length === 0) {
-    railEl.innerHTML = `<div style="padding:12px;text-align:center;color:var(--c-tertiary);font-size:12px">Aucun résultat pour "<strong>${searchQuery}</strong>"</div>`;
+    railEl.innerHTML = `<div style="padding:12px;text-align:center;color:var(--c-tertiary);font-size:12px">Aucun résultat pour "<strong>${escapeHtml(searchQuery)}</strong>"</div>`;
   }
 }
 

@@ -22,7 +22,6 @@ V4_PAGES = [
     "/v4/index.html",
     "/v4/library.html",
     "/v4/analyze.html",
-    "/v4/sets.html",
     "/v4/upload.html",
     "/v4/admin.html",
     "/v4/settings.html",

@@ -164,6 +164,9 @@ def fingerprint_file(file_path: str) -> Tuple[Optional[str], Optional[float]]:
 
 def lookup_acoustid(fingerprint: str, duration: float) -> Optional[Dict[str, Any]]:
     """Identify the track via AcoustID. Returns best match dict or None."""
+    if not ACOUSTID_API_KEY:
+        logger.debug("ACOUSTID_API_KEY absente — lookup AcoustID désactivé")
+        return None
     # Check circuit breaker
     if _is_circuit_open("acoustid"):
         logger.debug("AcoustID circuit breaker OPEN — skipping")

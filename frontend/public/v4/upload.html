@@ -756,7 +756,7 @@
 
   function markError(row, msg){
     row.className = 'q-row err';
-    row.querySelector('.q-meta').innerHTML = `<span style="color:#fecaca">Erreur : ${msg}</span>`;
+    row.querySelector('.q-meta').innerHTML = `<span style="color:#fecaca">Erreur : ${escapeHtml(msg)}</span>`;
     row.querySelector('.q-status').innerHTML = `
       <span class="q-step-chip err"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:10px;height:10px;stroke-width:3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Échec</span>
     `;

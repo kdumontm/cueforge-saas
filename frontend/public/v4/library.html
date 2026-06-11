@@ -907,7 +907,7 @@ function renderCustomViews(){
     const chip = document.createElement('button');
     chip.className = 'view-chip';
     chip.dataset.customId = v.id;
-    chip.innerHTML = `${v.name}<span class="bd" style="margin-left:4px;cursor:pointer" title="Supprimer">✕</span>`;
+    chip.innerHTML = `${escapeHtml(v.name)}<span class="bd" style="margin-left:4px;cursor:pointer" title="Supprimer">✕</span>`;
     chip.addEventListener('click', (e) => {
       // Clic sur la croix : delete
       if(e.target.classList.contains('bd')){

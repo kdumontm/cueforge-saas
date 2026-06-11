@@ -1202,234 +1202,6 @@ MIME_TYPES = {
 }
 
 
-# ── Upload ───────────────────────────────────────────────────────────────────
-
-@router.post("/upload", response_model=TrackUploadResponse)
-async def upload_track(
-    file: UploadFile = File(...),
-    cue_mode: str = Form("auto"),
-    background_tasks: BackgroundTasks = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    # cue_mode validation — contrôle ce que le pipeline fait avec les cues
-    #   auto      → cues générés tout de suite après primary (sans stems)
-    #   on_demand → cues pas générés, user cliquera sur "Générer cue points"
-    #   pro       → cues attendent que les stems soient prêts (confidence ~0.9)
-    if cue_mode not in ("auto", "on_demand", "pro"):
-        cue_mode = "auto"
-    # ── Daily limit (free=5/day, pro=20/day, unlimited/app/admin=no limit) ──
-    from datetime import date, datetime as dt
-    FREE_DAILY_LIMIT = 5
-    PRO_DAILY_LIMIT = 20
-
-    plan = getattr(current_user, 'subscription_plan', 'free') or 'free'
-    is_admin = getattr(current_user, 'is_admin', False)
-
-    # Determine if user has unlimited access
-    is_unlimited = is_admin or plan in ('app', 'unlimited')
-
-    if not is_unlimited:
-        daily_limit = PRO_DAILY_LIMIT if plan == 'pro' else FREE_DAILY_LIMIT
-        today = date.today()
-
-        # ── Comptage atomique via usage_logs (évite la race condition) ──────
-        from sqlalchemy import func
-        from app.models.organization import UsageLog
-        today_start = dt.combine(today, dt.min.time())
-        tracks_today = db.query(func.count(UsageLog.id)).filter(
-            UsageLog.user_id == current_user.id,
-            UsageLog.action == "upload",
-            UsageLog.created_at >= today_start,
-        ).scalar() or 0
-
-        if tracks_today >= daily_limit:
-            raise HTTPException(
-                status_code=429,
-                detail=f"Limite atteinte : {daily_limit} morceaux/jour sur le plan {plan}."
-            )
-
-        # Enregistre l'usage (source de vérité unique)
-        db.add(UsageLog(user_id=current_user.id, action="upload"))
-        # Mise à jour legacy pour compatibilité (admin panel, export RGPD)
-        current_user.tracks_today = tracks_today + 1
-        current_user.last_track_date = dt.utcnow()
-        safe_commit(db)
-        tracks_today += 1  # valeur locale post-insert
-
-        # Notify user when approaching daily limit (80%+)
-        usage_pct = tracks_today / daily_limit
-        if usage_pct >= 0.8 and tracks_today < daily_limit:
-            try:
-                from app.services.email_service import _send_email, _wrap_template
-                html = _wrap_template(f"""
-                    <p>Hey {current_user.name},</p>
-                    <p>Tu as utilise <strong>{current_user.tracks_today}/{daily_limit}</strong>
-                    morceaux aujourd'hui sur ton plan <strong>{plan}</strong>.</p>
-                    <p>Passe au plan superieur pour analyser plus de tracks !</p>
-                """)
-                _send_email(current_user.email, "TrackCue - Limite d'usage bientot atteinte", html)
-            except Exception:
-                pass  # email is best-effort
-
-    # Validate extension
-    ext = os.path.splitext(file.filename or "")[1].lower()
-    if ext not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail=f"File type not supported: {ext}")
-
-    # OPT #2: Upload streaming au lieu de tout en RAM
-    # Stocke les chunks au fur et à mesure au lieu de charger le fichier entier en mémoire
-    filename = f"{uuid.uuid4()}{ext}"
-    temp_path = None
-    file_path = None
-    total_size = 0
-
-    try:
-        temp_path = f"/tmp/{filename}.tmp"
-
-        # Stream upload par chunks de 1 MB
-        async with aiofiles.open(temp_path, 'wb') as f:
-            while chunk := await file.read(1024 * 1024):  # 1 MB chunks
-                total_size += len(chunk)
-                if total_size > MAX_FILE_SIZE_MB * 1024 * 1024:
-                    raise HTTPException(
-                        status_code=413,
-                        detail=f"File too large ({total_size / (1024 * 1024):.1f} MB). Max {MAX_FILE_SIZE_MB} MB."
-                    )
-                await f.write(chunk)
-
-        # 🔴 FIX (faille 4) : Validation des magic bytes — vérifie le contenu réel du fichier
-        # Lire les premiers bytes pour vérifier le magic number
-        async with aiofiles.open(temp_path, 'rb') as f:
-            header = await f.read(512)
-
-        if not storage_svc.validate_audio_magic_bytes(header, ext):
-            raise HTTPException(
-                status_code=400,
-                detail="Le contenu du fichier ne correspond pas au format audio déclaré.",
-            )
-
-        # Move temp file to permanent storage
-        file_path = storage_svc.save_upload_from_path(temp_path, filename)
-
-        # ✅ FIX ATOMIQUE (Dev BB, 2026-04-24) :
-        # 1. Vérifier que le fichier local existe
-        if not file_path or not os.path.exists(file_path):
-            raise HTTPException(status_code=500, detail="Erreur création fichier local — merci de réessayer")
-
-        # 2. AVANT de créer la row DB, uploader vers R2 si activé
-        r2_key_final = None
-        try:
-            from app.services import r2_service
-            if r2_service.enabled():
-                # Retry logic : 3 tentatives avec backoff exponential
-                max_retries = 3
-                for attempt in range(max_retries):
-                    try:
-                        logger.info(f"[UPLOAD] Attempting R2 upload (attempt {attempt + 1}/{max_retries}): {filename}")
-                        r2_service.upload_file(file_path, filename)
-
-                        # Verify R2 upload with HEAD
-                        if r2_service.object_exists(filename):
-                            r2_key_final = filename
-                            logger.info(f"[UPLOAD] R2 upload verified: {filename}")
-                            break
-                        else:
-                            logger.warning(f"[UPLOAD] R2 verification failed, retrying...")
-                    except Exception as e:
-                        logger.warning(f"[UPLOAD] R2 upload failed (attempt {attempt + 1}/{max_retries}): {e}")
-                        if attempt < max_retries - 1:
-                            import time
-                            time.sleep(2 ** attempt)  # backoff: 1s, 2s, 4s
-                        elif attempt == max_retries - 1:
-                            # Dernière tentative échouée
-                            logger.error(f"[UPLOAD] R2 upload failed after {max_retries} attempts for {filename}")
-                            raise HTTPException(
-                                status_code=500,
-                                detail="Impossible d'uploader le fichier — merci de réessayer"
-                            )
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error(f"[UPLOAD] Unexpected error during R2 upload: {e}")
-            raise HTTPException(status_code=500, detail="Erreur serveur lors de l'upload")
-    finally:
-        if temp_path and os.path.exists(temp_path):
-            try:
-                os.remove(temp_path)
-            except Exception:
-                pass
-
-
-    # 3. SEULEMENT SI R2 confirmé (ou si R2 non configuré et fallback local OK) :
-    # Créer la row DB avec r2_key set
-    try:
-        track = Track(
-            user_id=current_user.id,
-            filename=filename,
-            original_filename=sanitize_filename(file.filename or filename),
-            file_path=file_path if not r2_key_final else None,  # Vider file_path si R2 est la source de vérité
-            file_size=total_size,
-            status=TrackStatus.pending,
-            cue_generation_mode=cue_mode,
-            stems_status='pending',
-            stems_progress=0,
-            cues_status='pending',
-            r2_key=r2_key_final,  # TOUJOURS set si R2 activé
-        )
-        db.add(track)
-        safe_commit(db, "post-upload track creation")
-        db.refresh(track)
-        logger.info(f"[UPLOAD] Track {track.id} created with r2_key={r2_key_final}")
-    except Exception as e:
-        logger.error(f"[UPLOAD] DB creation failed after R2 upload confirmed: {e}")
-        # Compensating action : supprimer l'objet R2 qu'on vient d'uploader
-        if r2_key_final:
-            try:
-                from app.services import r2_service
-                r2_service.delete_object(r2_key_final)
-                logger.info(f"[UPLOAD] Deleted R2 object {r2_key_final} (compensating action)")
-            except Exception as cleanup_err:
-                logger.warning(f"[UPLOAD] Failed to clean up R2 object {r2_key_final}: {cleanup_err}")
-        raise HTTPException(status_code=500, detail="Erreur création base de données — fichier non assuré")
-
-
-    # 🎯 2026-04-21 QA : déclenche l'analyse auto en background après l'upload.
-    # Avant : le track restait "pending" ad vitam, Kevin devait cliquer "Analyser"
-    # manuellement — cassait tout le flow suggest-cues / Mix Studio / Compatible.
-    # Maintenant : l'utilisateur upload, l'analyse démarre immédiatement, l'UI peut
-    # poller /tracks/{id} pour suivre la progression.
-    #
-    # 🔴 FIX #39 (2026-04-23): Délai de 3s avant l'analyse pour éviter la race
-    # condition avec l'upload R2 en background. Si R2 upload est retardé, cela
-    # donne du temps pour que le fichier soit disponible avant l'analyse.
-    if background_tasks:
-        try:
-            def _delayed_analysis(tid: int):
-                import time
-                time.sleep(3)
-                _run_analysis(tid)
-            background_tasks.add_task(_delayed_analysis, track.id)
-            logger.info(f"[UPLOAD] Auto-trigger _run_analysis for track {track.id} (delayed 3s)")
-        except Exception as e:
-            logger.warning(f"[UPLOAD] Failed to enqueue analysis for track {track.id}: {e}")
-
-    # PERF #1.4: invalidation cache listing (upload → nouveau track visible)
-    try:
-        from app.services.cache_service import bump_namespace_version
-        bump_namespace_version(current_user.id, "tracks")
-        bump_namespace_version(current_user.id, "analytics")
-    except Exception:
-        pass
-
-    return TrackUploadResponse(
-        id=track.id,
-        status=track.status.value,
-        filename=track.filename,
-        original_filename=track.original_filename,
-    )
-
-
 # ── Audio Streaming (for wavesurfer.js) ──────────────────────────────────────
 
 # Lossless formats that should be transcoded for web playback
@@ -6938,6 +6710,23 @@ async def websocket_status(websocket: WebSocket, db: Session = Depends(get_db)):
         "3": "error"
     }
     """
+    # ── Sécurité : auth JWT obligatoire (query param ?token=) ──
+    # Sans ça, n'importe qui pouvait poller le statut (et les détails BPM/key)
+    # des tracks de TOUS les users par simple énumération d'IDs.
+    from app.services.auth_service import decode_access_token as _decode_at
+    token = websocket.query_params.get("token", "")
+    payload = _decode_at(token) if token else None
+    user_id = payload.get("sub") if payload else None
+    if not user_id:
+        # close() avant accept() → handshake refusé (403)
+        await websocket.close(code=4401)
+        return
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        await websocket.close(code=4401)
+        return
+
     await websocket.accept()
     try:
         while True:
@@ -6956,7 +6745,7 @@ async def websocket_status(websocket: WebSocket, db: Session = Depends(get_db)):
             from sqlalchemy.orm import joinedload as _joinedload
             tracks_q = db.query(Track).options(
                 _joinedload(Track.analysis)
-            ).filter(Track.id.in_(track_ids)).all()
+            ).filter(Track.id.in_(track_ids), Track.user_id == user_id).all()
             tracks_by_id = {t.id: t for t in tracks_q}
 
             statuses = {}
