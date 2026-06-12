@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 import secrets
 import hashlib
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 from typing import Annotated
@@ -43,6 +43,26 @@ from app.services.email_service import (
 from app.middleware.auth import get_current_user, invalidate_user_cache
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+# ── Cookie httpOnly pour le refresh token (sécurité : sort le RT du localStorage,
+#    non lisible par du JS → immunisé contre le vol par XSS). Additif : le body
+#    reste accepté pour rétro-compat pendant la transition. ──
+_RT_COOKIE = "cf_rt"
+
+def _set_refresh_cookie(response: Response, token: str) -> None:
+    from app.services.auth_service import REFRESH_TOKEN_EXPIRE_DAYS
+    response.set_cookie(
+        key=_RT_COOKIE,
+        value=token,
+        max_age=REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/api/v1/auth",
+    )
+
+def _clear_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(_RT_COOKIE, path="/api/v1/auth")
 
 
 def _hash_token(token: str) -> str:
@@ -126,7 +146,9 @@ class TokenResponse(BaseModel):
 
 
 class RefreshRequest(BaseModel):
-    refresh_token: str
+    # Optionnel : le refresh token peut venir du cookie httpOnly (cf_rt) OU du body
+    # (rétro-compat avec les clients qui le passent encore en JSON).
+    refresh_token: str | None = None
 
 
 class VerifyEmailRequest(BaseModel):
@@ -175,7 +197,7 @@ class OAuthCallbackRequest(BaseModel):
 
 
 @router.post("/register", response_model=TokenResponse)
-async def register(user_data: UserRegister, db: Session = Depends(get_db)):
+async def register(user_data: UserRegister, response: Response, db: Session = Depends(get_db)):
     email_lower = user_data.email.strip().lower()
     if db.query(User).filter(func.lower(User.email) == email_lower).first():
         raise HTTPException(status_code=400, detail="Cette adresse email est déjà utilisée")
@@ -211,6 +233,7 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     except Exception:
         pass  # SMTP not configured in dev
 
+    _set_refresh_cookie(response, refresh)
     return TokenResponse(
         access_token=access,
         refresh_token=refresh,
@@ -271,7 +294,7 @@ async def resend_verify(req: ResendVerifyRequest, db: Session = Depends(get_db))
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(credentials: UserLogin, db: Session = Depends(get_db)):
+async def login(credentials: UserLogin, response: Response, db: Session = Depends(get_db)):
     """Login by username or email (case-insensitive). Returns access + refresh tokens."""
     identifier_lower = credentials.identifier.strip().lower()
     user = db.query(User).filter(
@@ -302,6 +325,7 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
     user.last_login_at = datetime.utcnow()
     db.commit()
 
+    _set_refresh_cookie(response, refresh)
     return TokenResponse(
         access_token=access,
         refresh_token=refresh,
@@ -310,13 +334,23 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
     )
 
 
+# (login pose le cookie httpOnly juste avant ce return — voir ci-dessous)
+
+
 # ─── Token refresh ───────────────────────────────────────────────
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh_tokens(req: RefreshRequest, db: Session = Depends(get_db)):
-    """Exchange a valid refresh token for a new access + refresh pair (rotation)."""
-    payload = decode_refresh_token(req.refresh_token)
+async def refresh_tokens(req: RefreshRequest, request: Request, response: Response, db: Session = Depends(get_db)):
+    """Exchange a valid refresh token for a new access + refresh pair (rotation).
+
+    Le refresh token est lu d'abord depuis le cookie httpOnly (cf_rt), puis en
+    fallback depuis le body JSON (rétro-compat clients localStorage).
+    """
+    incoming_rt = request.cookies.get(_RT_COOKIE) or req.refresh_token
+    if not incoming_rt:
+        raise HTTPException(status_code=401, detail="Aucun refresh token fourni")
+    payload = decode_refresh_token(incoming_rt)
     if not payload:
         raise HTTPException(status_code=401, detail="Session expirée, veuillez vous reconnecter")
 
@@ -326,10 +360,11 @@ async def refresh_tokens(req: RefreshRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Utilisateur introuvable")
 
     # Compare le hash du token reçu avec le hash stocké en DB
-    if user.refresh_token != _hash_token(req.refresh_token):
-        # Possible vol de token — invalide tout
+    if user.refresh_token != _hash_token(incoming_rt):
+        # Possible vol de token — invalide tout + purge le cookie
         user.refresh_token = None
         db.commit()
+        _clear_refresh_cookie(response)
         raise HTTPException(status_code=401, detail="Réutilisation de token détectée, veuillez vous reconnecter")
 
     # Rotate tokens
@@ -338,6 +373,7 @@ async def refresh_tokens(req: RefreshRequest, db: Session = Depends(get_db)):
     user.refresh_token = _hash_token(new_refresh)
     db.commit()
 
+    _set_refresh_cookie(response, new_refresh)
     return TokenResponse(
         access_token=new_access,
         refresh_token=new_refresh,
@@ -350,11 +386,12 @@ async def refresh_tokens(req: RefreshRequest, db: Session = Depends(get_db)):
 
 
 @router.delete("/logout", status_code=204)
-async def logout(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def logout(response: Response, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Invalidate the user's refresh token."""
     user.refresh_token = None
     db.commit()
     invalidate_user_cache(user.id)  # PERF Wave1: purge token cache après logout
+    _clear_refresh_cookie(response)  # purge le cookie httpOnly
 
 @router.get("/sessions")
 async def get_active_sessions(user: User = Depends(get_current_user)):

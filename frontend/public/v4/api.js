@@ -32,7 +32,9 @@
       try {
         const r = await fetch(`${BASE}/auth/refresh`, {
           method: 'POST',
+          credentials: 'include',  // envoie/reçoit le cookie httpOnly cf_rt
           headers: { 'Content-Type': 'application/json' },
+          // body RT en fallback rétro-compat ; le backend préfère le cookie
           body: JSON.stringify({ refresh_token: rt }),
         });
         if(r.status === 401){
