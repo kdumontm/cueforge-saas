@@ -286,7 +286,7 @@
   </p>
 </div>
 
-<script src="/v4/api.js?v=20260612-jwt"></script>
+<script src="/v4/api.js?v=20260612-jwt2"></script>
 <script src="/v4/shared.js?v=20260611-p1"></script>
 <script src="/v4/transitions.js?v=20260611-p1" defer></script>
 <script src="/v4/transitions-pack3.js?v=20260611-p1" defer></script>
@@ -386,7 +386,7 @@
       .then(function(res){
         if (res.ok && res.data.access_token){
           localStorage.setItem('trackcue_token', res.data.access_token);
-          if (res.data.refresh_token) localStorage.setItem('trackcue_refresh', res.data.refresh_token);
+          // refresh token désormais dans le cookie httpOnly cf_rt (sécurité XSS) — plus de localStorage
           location.replace('/dashboard');
         } else {
           showError(res.data && res.data.detail || 'OAuth échoué');
@@ -430,7 +430,7 @@
       .then(function(res){
         if (!res.ok || !res.data.access_token) throw new Error('Connexion auto échouée');
         localStorage.setItem('trackcue_token', res.data.access_token);
-        if (res.data.refresh_token) localStorage.setItem('trackcue_refresh', res.data.refresh_token);
+          // refresh token désormais dans le cookie httpOnly cf_rt (sécurité XSS) — plus de localStorage
         location.replace('/dashboard');
       })
       .catch(function(err){

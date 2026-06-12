@@ -26,8 +26,8 @@
     // Dédoublonnage : si un refresh est déjà en cours, toutes les requêtes 401
     // concurrentes partagent la même promesse (évite de gaspiller le RT en rotation).
     if(_refreshInFlight) return _refreshInFlight;
+    // RT legacy éventuel (sessions pré-cookie) — sinon le cookie httpOnly cf_rt suffit.
     const rt = getRefresh();
-    if(!rt) return false;
     _refreshInFlight = (async () => {
       try {
         const r = await fetch(`${BASE}/auth/refresh`, {
@@ -35,7 +35,7 @@
           credentials: 'include',  // envoie/reçoit le cookie httpOnly cf_rt
           headers: { 'Content-Type': 'application/json' },
           // body RT en fallback rétro-compat ; le backend préfère le cookie
-          body: JSON.stringify({ refresh_token: rt }),
+          body: JSON.stringify(rt ? { refresh_token: rt } : {}),
         });
         if(r.status === 401){
           // Refresh token invalidé côté serveur → déconnexion propre côté client
@@ -46,9 +46,10 @@
         const d = await r.json();
         if(d && d.access_token){
           setToken(d.access_token);
-          // 🔴 Fix : le backend fait de la rotation, on DOIT persister le nouveau refresh
-          // sinon au 2e appel le hash ne matchera plus et on se fera logout.
-          if(d.refresh_token) setRefresh(d.refresh_token);
+          // 🔒 Le refresh token vit désormais dans le cookie httpOnly cf_rt (non lisible
+          // par JS → immunisé XSS). On ne le stocke plus en localStorage et on purge
+          // tout RT legacy resté d'une session pré-cookie.
+          try { localStorage.removeItem(REFRESH_KEY); } catch {}
           return true;
         }
         return false;
