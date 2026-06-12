@@ -40,7 +40,7 @@ from app.services.email_service import (
     send_verification_email,
     send_welcome_email,
 )
-from app.middleware.auth import get_current_user
+from app.middleware.auth import get_current_user, invalidate_user_cache
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
