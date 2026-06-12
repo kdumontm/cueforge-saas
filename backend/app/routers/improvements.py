@@ -822,10 +822,15 @@ def admin_quick_action(
     action = payload.action
     if action == "reset_password":
         # Génère un token de reset (l'admin envoie le lien manuellement à l'user)
-        target.reset_token = secrets.token_urlsafe(32)
-        target.reset_token_expires = datetime.utcnow().replace(microsecond=0)
+        # 🔴 Fix 2026-06-11 : expirait à l'instant de création + stocké en clair
+        # alors que auth.py compare avec _hash_token() → ne marchait jamais.
+        from datetime import timedelta
+        from app.routers.auth import _hash_token
+        raw_token = secrets.token_urlsafe(32)
+        target.reset_token = _hash_token(raw_token)
+        target.reset_token_expires = datetime.utcnow() + timedelta(hours=1)
         db.commit()
-        return {"status": "reset_token_set", "token": target.reset_token}
+        return {"status": "reset_token_set", "token": raw_token}
     elif action == "force_logout":
         # Invalide les refresh tokens
         target.refresh_token = None

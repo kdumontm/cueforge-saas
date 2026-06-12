@@ -45,6 +45,28 @@ class _RateBucket:
 
 _bucket = _RateBucket()
 
+
+def _rate_allowed(key: str, max_hits: int, window_seconds: int) -> bool:
+    """Rate limit partagé entre workers via Redis (fenêtre fixe, INCR atomique).
+
+    🔴 Fix 2026-06-11 : le bucket in-memory était par process → avec 2 workers
+    uvicorn les limites effectives étaient ×2 et reset à chaque deploy.
+    Fallback sur le bucket mémoire si Redis indisponible.
+    """
+    try:
+        from app.services.cache_service import _get_redis
+        r = _get_redis()
+        if r is not None:
+            import time as _t
+            rk = f"rl:{key}:{int(_t.time() // window_seconds)}"
+            n = r.incr(rk)
+            if n == 1:
+                r.expire(rk, window_seconds + 1)
+            return n <= max_hits
+    except Exception:
+        pass  # Redis down → fallback mémoire (mieux que bloquer le trafic)
+    return _bucket.is_allowed(key, max_hits, window_seconds)
+
 # Règles par path prefix -> (max_hits, window_seconds)
 RATE_LIMITS: Dict[str, Tuple[int, int]] = {
     "/auth/login":           (5, 60),     # 5/min (protège contre brute-force)
@@ -126,7 +148,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 return await call_next(request)
             # Rate limit GET sensibles : 30/min par IP
             key = f"{client_ip}:get:{path}"
-            if not _bucket.is_allowed(key, 30, 60):
+            if not _rate_allowed(key, 30, 60):
                 return JSONResponse(
                     status_code=429,
                     content={"detail": "Trop de requêtes. Réessayez dans 1 minute."},
@@ -142,7 +164,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         for prefix, (max_hits, window) in RATE_LIMITS.items():
             if prefix in path:
                 key = f"{client_ip}:{prefix}"
-                if not _bucket.is_allowed(key, max_hits, window):
+                if not _rate_allowed(key, max_hits, window):
                     return JSONResponse(
                         status_code=429,
                         content={"detail": f"Trop de requêtes. Réessayez dans {window // 60} minute(s)."},
@@ -156,7 +178,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 max_hits, window = PLAN_RATE_LIMITS[user_plan]
                 # Clé = IP + plan (pas de path, global par plan)
                 key = f"{client_ip}:plan:{user_plan}"
-                if not _bucket.is_allowed(key, max_hits, window):
+                if not _rate_allowed(key, max_hits, window):
                     return JSONResponse(
                         status_code=429,
                         content={

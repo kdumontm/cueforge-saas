@@ -744,399 +744,7 @@ def _clone_analysis_from_twin(
     )
 
 
-def _run_analysis(track_id: int):
-    """Background task: run audio analysis + metadata lookup.
-
-    OPT #1: TRANSACTIONS COURTES
-    - Fetch user pref + file path (session courte)
-    - Fermer session avant analyse (30-120s sans DB ouverte)
-    - Rouvrir session UNIQUEMENT pour commit final (quelques ms)
-    """
-    import traceback as _tb
-    import sys as _sys
-    from app.database import SessionLocal
-
-    def _log(msg):
-        """Force-flush log to ensure it appears in Railway logs."""
-        logger.info(msg)
-        print(msg, flush=True, file=_sys.stderr)
-
-    _log(f"[ANALYSIS] ════ START track {track_id} ════")
-
-    # ── Helper: décrémenter le quota concurrent ──
-    def _release_quota(uid):
-        if uid is None:
-            return
-        try:
-            from app.services.quota_service import get_quota_service
-            qs = get_quota_service()
-            qs.record_analysis_complete(uid)
-            _log(f"[ANALYSIS] Quota concurrent decremented for user {uid}")
-        except Exception as qe:
-            logger.warning(f"[ANALYSIS] Failed to decrement quota: {qe}")
-
-    _quota_user_id = None  # sera set quand on connaît le user_id
-
-    # ─ PHASE 1 : Fetch initial track state (session courte) ─
-    db = SessionLocal()
-    # ÉTAPE 2 (C) : Verrou anti-doublon par track_id
-    with _active_analyses_lock:
-        if track_id in _active_analyses:
-            _log(f"[ANALYSIS] track {track_id} déjà en cours — abandon doublon")
-            _release_quota(_quota_user_id)
-            return
-        _active_analyses.add(track_id)
-    
-    try:
-        # ÉTAPE 2 (A) : Retry DB intelligent
-        db = _db_with_retry(lambda: SessionLocal())
-        
-        # ÉTAPE 2 (A): Fetch avec retry
-        track = _db_with_retry(lambda: db.query(Track).filter(Track.id == track_id).first())
-        
-        if not track:
-            _log(f"[ANALYSIS] Track {track_id} not found in DB — aborting")
-            _release_quota(_quota_user_id)
-            return
-
-        file_path = track.file_path
-        user_id = track.user_id
-        _quota_user_id = user_id
-        
-        # ÉTAPE 2 (E) : Logger structuré (maintenant qu'on a track + user_id)
-        from app.services.structured_log import AnalysisLogger
-        analysis_attempts = (getattr(track, 'analysis_attempts', 0) or 0) + 1
-        slog = AnalysisLogger(track_id=track_id, user_id=user_id, attempt=analysis_attempts)
-        slog.phase_start("init")  # pour record_analysis_complete dans finally (même type que current_user.id)
-        _log(f"[ANALYSIS] Track {track_id}: file_path={file_path}, filename={track.filename}")
-
-        # Reconstruct file_path from filename if missing
-        if not file_path and track.filename:
-            from app.services.storage import UPLOAD_DIR
-            reconstructed = os.path.join(UPLOAD_DIR, track.filename)
-            if os.path.exists(reconstructed):
-                file_path = reconstructed
-                track.file_path = file_path
-                _log(f"[ANALYSIS] Reconstructed file_path from filename: {file_path}")
-
-        if not file_path or not os.path.exists(file_path):
-            _log(f"[ANALYSIS] File missing on disk: {file_path}")
-            
-            # ÉTAPE 2 (B) : tentative de récupération depuis R2
-            recovered = False
-            try:
-                from app.services import r2_service
-                if r2_service.enabled() and file_path:
-                    r2_key = r2_service.key_from_local_path(file_path)
-                    if r2_service.object_exists(r2_key):
-                        _log(f"[ANALYSIS] Récupération R2 du fichier {r2_key}...")
-                        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-                        r2_service.download_file(r2_key, file_path)
-                        if os.path.exists(file_path) and os.path.getsize(file_path) > 1000:
-                            _log(f"[ANALYSIS] ✓ Fichier récupéré depuis R2 ({os.path.getsize(file_path)} bytes)")
-                            recovered = True
-                        else:
-                            _log(f"[ANALYSIS] R2 download produit fichier invalide")
-                    else:
-                        _log(f"[ANALYSIS] Fichier absent de R2 aussi (key={r2_key})")
-                else:
-                    _log(f"[ANALYSIS] R2 non configuré ou file_path vide, skip récupération")
-            except Exception as r2_err:
-                _log(f"[ANALYSIS] Récupération R2 échouée: {r2_err}")
-            
-            if not recovered:
-                mark_track_as_failed(db, track_id, "Fichier audio introuvable (disque + R2 absents)", "analysis")
-                _release_quota(_quota_user_id)
-                return
-
-        _log(f"[ANALYSIS] File OK, size={os.path.getsize(file_path)} bytes")
-
-        # ÉTAPE 2 (D) : skip si déjà analysé et inchangé
-        existing_analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track_id).first()
-        if existing_analysis and track.status == TrackStatus.completed and track.file_md5:
-            current_md5 = None
-            try:
-                import hashlib
-                h = hashlib.md5()
-                with open(file_path, "rb") as f:
-                    for chunk in iter(lambda: f.read(1024 * 1024), b""):
-                        h.update(chunk)
-                current_md5 = h.hexdigest()
-            except Exception as e:
-                logger.warning(f"[ANALYSIS] MD5 recompute failed: {e}")
-            
-            if current_md5 and current_md5 == track.file_md5:
-                _log(f"[ANALYSIS] ⚡ Track {track_id} déjà analysé + fichier inchangé (MD5={current_md5[:8]}…) → skip complet")
-                try:
-                    from app.services.cache_service import clear_analysis_progress
-                    clear_analysis_progress(track_id)
-                except Exception:
-                    pass
-                _release_quota(_quota_user_id)
-                return
-            elif current_md5:
-                _log(f"[ANALYSIS] Fichier modifié (MD5 {track.file_md5[:8]}… → {current_md5[:8]}…), réanalyse complète")
-                track.file_md5 = current_md5
-
-        # Cleanup + set status — delete cue history first to avoid FK violation
-        from app.models.track import CueHistory
-        try:
-            existing_cues = db.query(CuePoint).filter(CuePoint.track_id == track.id).all()
-            if existing_cues:
-                cue_ids = [c.id for c in existing_cues]
-                db.query(CueHistory).filter(CueHistory.cue_point_id.in_(cue_ids)).delete(synchronize_session='fetch')
-                db.query(CuePoint).filter(CuePoint.track_id == track.id).delete(synchronize_session='fetch')
-                _log(f"[ANALYSIS] Cleaned {len(cue_ids)} old cue points + history")
-        except Exception as e:
-            logger.warning(f"[ANALYSIS] Cue cleanup error (non-fatal): {e}")
-            db.rollback()
-
-        old_analysis = db.query(TrackAnalysis).filter(TrackAnalysis.track_id == track.id).first()
-        if old_analysis:
-            db.delete(old_analysis)
-            _log(f"[ANALYSIS] Deleted old analysis")
-
-        track.status = TrackStatus.analyzing
-        safe_commit(db)
-        _log(f"[ANALYSIS] Phase 1 done — status set to analyzing")
-        
-        # ÉTAPE 2 (E) : fin de phase init
-        slog.phase_end("init", status="ok", file_size=os.path.getsize(file_path) if file_path and os.path.exists(file_path) else None)
-
-        # ─ PHASE 1.5 SUPPRIMÉE (2026-04-28) ─
-        # L'ancien twin fingerprint maison (SHA1 sur 30s décodées, intra-user)
-        # a été retiré car redondant avec :
-        #   - l'étape 1 (dédup MD5 byte-pour-byte au moment de l'upload)
-        #   - l'étape 1.6 (AcoustID + MusicBrainz cross-user via musicbrainz_id)
-        # Gain : ~1s économisée par analyse, code plus simple, pas de risque
-        # de faux positif sur les remixes différents avec intro identique.
-        _twin_found = False  # conservé pour compat avec le code en aval
-        # ─ PHASE 1.6 (vague 2+) : AcoustID + MusicBrainz + Community Metadata ─
-        # Changement A : AcoustID en parallèle (lance fingerprint + lookup dès qu'on a le file_path)
-        # Changement B : Seuil configurable (défaut 0.5 vs 0.3 avant)
-        # Changement C : Skip MusicBrainz si AcoustID complet (titre + artiste)
-        # Changement D : Artwork fallback Spotify/iTunes en daemon thread
-        # Extension E : Metadata communautaire (lookup + persist + save user corrections)
-        _acoustid_lookup_enabled = os.environ.get("ACOUSTID_LOOKUP", "1") == "1"
-        if not _twin_found and _acoustid_lookup_enabled:
-            try:
-                from app.services.metadata_service import (
-                    fingerprint_file as _fp_chromaprint,
-                    lookup_acoustid as _lookup_acoustid,
-                    lookup_musicbrainz as _lookup_mb,
-                    search_spotify,
-                    search_itunes,
-                )
-                from app.models.community_metadata import CommunityMetadata
-                import time as _time_acoustid
-                import hashlib as _hashlib_acoustid
-                import threading as _threading_acoustid
-                import queue as _queue_acoustid
-                
-                _t_acoustid = _time_acoustid.time()
-
-                # ─ Changement A + E.1: Fingerprint + chromaprint_hash ─
-                ac_fp, ac_duration = _fp_chromaprint(file_path)
-                if ac_fp and ac_duration:
-                    chromaprint_hash = _hashlib_acoustid.md5(ac_fp.encode()).hexdigest()
-                    track.chromaprint_hash = chromaprint_hash
-                    
-                    # ─ Extension E.2 : Lookup metadata communautaire AVANT AcoustID HTTP ─
-                    cm = db.query(CommunityMetadata).filter(
-                        CommunityMetadata.chromaprint_hash == chromaprint_hash
-                    ).first()
-                    if cm:
-                        _log(f"[ACOUSTID-COMMUNITY] ✓ Metadata communautaire trouvée (contribué par {cm.contributors_count} users)")
-                        # Applique uniquement les champs vides
-                        if not track.title and cm.title: track.title = cm.title
-                        if not track.artist and cm.artist: track.artist = cm.artist
-                        if not track.album and cm.album: track.album = cm.album
-                        if not track.genre and cm.genre: track.genre = cm.genre
-                        if not track.year and cm.year: track.year = cm.year
-                        if hasattr(track, 'label') and not track.label and cm.label: track.label = cm.label
-                        if hasattr(track, 'artwork_url') and not track.artwork_url and cm.artwork_url: track.artwork_url = cm.artwork_url
-                        if cm.musicbrainz_id and not track.musicbrainz_id: track.musicbrainz_id = cm.musicbrainz_id
-                        safe_commit(db)
-                    
-                    # ─ Changement A (continue) : AcoustID lookup ─
-                    ac_result = _lookup_acoustid(ac_fp, ac_duration)
-                    if ac_result and ac_result.get("recording_id"):
-                        recording_id = ac_result["recording_id"]
-                        score = float(ac_result.get("score", 0))
-                        _log(f"[ACOUSTID] ✓ Match: {ac_result.get('artist')} — {ac_result.get('title')} (score={score:.2f})")
-
-                        # ─ Extension E.2 : Si remix détecté dans le titre, sois prudent avec AcoustID ─
-                        is_remix_in_title = False
-                        try:
-                            from app.services.remix_detection import detect_remix_info
-                            title_for_check = track.title or track.original_filename or ""
-                            remix_check = detect_remix_info(title_for_check)
-                            is_remix_in_title = remix_check.get("is_remix", False)
-                        except Exception:
-                            pass
-                        
-                        if is_remix_in_title and score < 0.8:
-                            # AcoustID a probablement matché l'original, pas le remix
-                            # On garde le recording_id pour info mais on N'ÉCRASE PAS title/artist
-                            _log(f"[ACOUSTID-REMIX] Remix détecté dans titre + score AcoustID {score:.2f} < 0.8 → on garde le titre user")
-                            if not track.musicbrainz_id:
-                                track.musicbrainz_id = recording_id
-                            # Skip l'enrichissement title/artist — l'utilisateur a probablement le bon titre
-                        else:
-                            # Score AcoustID haut ou pas de remix : enrichissement normal
-                            if not track.musicbrainz_id:
-                                track.musicbrainz_id = recording_id
-                            if not track.title and ac_result.get("title"):
-                                track.title = ac_result["title"]
-                            if not track.artist and ac_result.get("artist"):
-                                track.artist = ac_result["artist"]
-
-                        # ─ Changement C : Skip MB si AcoustID complet ─
-                        skip_mb = track.title and track.artist
-                        if not skip_mb:
-                            try:
-                                mb = _lookup_mb(recording_id)
-                                if mb:
-                                    if not track.album and mb.get("album"):
-                                        track.album = mb.get("album")
-                                    if not track.genre and mb.get("genre"):
-                                        track.genre = mb.get("genre")
-                                    if not track.year and mb.get("year"):
-                                        try:
-                                            track.year = int(str(mb.get("year"))[:4])
-                                        except Exception:
-                                            pass
-                                    if hasattr(track, "label") and not track.label and mb.get("label"):
-                                        track.label = mb.get("label")
-                            except Exception as mb_err:
-                                logger.debug(f"[ACOUSTID] MB lookup skipped/failed: {mb_err}")
-
-                        safe_commit(db)
-
-                        # ─ Extension E.3 : Persister les meta dans community_metadata ─
-                        if track.chromaprint_hash and (track.title or track.artist):
-                            cm_existing = db.query(CommunityMetadata).filter(
-                                CommunityMetadata.chromaprint_hash == track.chromaprint_hash
-                            ).first()
-                            if not cm_existing:
-                                cm = CommunityMetadata(
-                                    chromaprint_hash=track.chromaprint_hash,
-                                    musicbrainz_id=track.musicbrainz_id,
-                                    title=track.title,
-                                    artist=track.artist,
-                                    album=track.album,
-                                    genre=track.genre,
-                                    year=track.year,
-                                    label=getattr(track, 'label', None),
-                                    artwork_url=getattr(track, 'artwork_url', None),
-                                    contributors_count=1,
-                                )
-                                db.add(cm)
-                                try:
-                                    safe_commit(db)
-                                    _log(f"[COMMUNITY-MD] créé pour chromaprint={track.chromaprint_hash[:8]}…")
-                                except Exception:
-                                    db.rollback()
-
-                        _log(f"[ACOUSTID] enrichi en {_time_acoustid.time()-_t_acoustid:.1f}s")
-
-                        # ─ Changement D : Artwork fallback Spotify/iTunes en daemon ─
-                        if track.artist and track.title and not getattr(track, 'artwork_url', None):
-                            def _artwork_worker(track_id, artist, title):
-                                try:
-                                    from app.database import SessionLocal
-                                    from app.models.track import Track as TrackModel
-                                    artwork = None
-                                    try:
-                                        sp = search_spotify(artist, title)
-                                        if sp and sp.get("artwork_url"):
-                                            artwork = sp["artwork_url"]
-                                    except Exception:
-                                        pass
-                                    if not artwork:
-                                        try:
-                                            it = search_itunes(artist, title)
-                                            if it and it.get("artwork_url"):
-                                                artwork = it["artwork_url"]
-                                        except Exception:
-                                            pass
-                                    if artwork:
-                                        db_local = SessionLocal()
-                                        try:
-                                            t = db_local.query(TrackModel).filter(TrackModel.id == track_id).first()
-                                            if t and not t.artwork_url:
-                                                t.artwork_url = artwork
-                                                db_local.commit()
-                                                logger.info(f"[ARTWORK] track {track_id}: artwork récupéré")
-                                        finally:
-                                            db_local.close()
-                                except Exception as e:
-                                    logger.debug(f"[ARTWORK] worker failed: {e}")
-                            
-                            artwork_thread = _threading_acoustid.Thread(
-                                target=_artwork_worker,
-                                args=(track.id, track.artist, track.title),
-                                daemon=True,
-                                name=f"artwork-{track.id}"
-                            )
-                            artwork_thread.start()
-
-                        # Twin cross-user lookup (ancien code Step E, compatible)
-                        mb_twin = (
-                            db.query(Track)
-                            .filter(
-                                Track.musicbrainz_id == recording_id,
-                                Track.id != track.id,
-                                Track.status == TrackStatus.completed,
-                            )
-                            .first()
-                        )
-                        if mb_twin:
-                            mb_twin_analysis = db.query(TrackAnalysis).filter(
-                                TrackAnalysis.track_id == mb_twin.id
-                            ).first()
-                            if mb_twin_analysis:
-                                _log(f"[ACOUSTID] ✓ Cross-user twin trouvé — clone analyse, skip pipeline")
-                                _clone_analysis_from_twin(db, track, mb_twin, mb_twin_analysis)
-                                _log(f"[ANALYSIS] ════ COMPLETE track {track_id} ════ (acoustid twin={mb_twin.id})")
-                                _twin_found = True
-                    else:
-                        _log(f"[ACOUSTID] No confident match (fp len={len(ac_fp) if ac_fp else 0})")
-                else:
-                    _log(f"[ACOUSTID] fpcalc unavailable or file too short, skipping")
-            except Exception as ac_err:
-                logger.warning(f"[ACOUSTID] Lookup failed (non-fatal, continuing): {ac_err}")
-
-        # 🎯 2026-04-23 — Pipeline découpé : la phase primary NE FAIT JAMAIS
-        # les stems. Les stems tournent toujours en background APRÈS que le
-        # track soit marqué completed, pour que la library affiche le son ASAP.
-        # use_stems=False ici — Demucs sera lancé dans _run_stems_background.
-        use_stems = False
-
-        # Lire le mode de génération des cues depuis le track (défaut: auto)
-        cue_gen_mode = getattr(track, 'cue_generation_mode', 'auto') or 'auto'
-        _log(f"[PIPELINE] track {track_id}: cue_generation_mode={cue_gen_mode}")
-
-        # Reset pipeline states au début de chaque analyse
-        # 2026-04-23 bis : primary_status ajouté (INSTANT fini = running,
-        # primary_complete fini = ready). cues_status en auto attend
-        # primary_complete pour avoir sections/drops disponibles.
-        track.primary_status = 'pending'
-        track.stems_status = 'pending'
-        track.stems_progress = 0
-        track.cues_status = 'pending' if cue_gen_mode != 'skipped' else 'skipped'
-    except Exception as e:
-        _log(f"[ANALYSIS] Phase 1 CRASHED: {e}\n{_tb.format_exc()}")
-        try:
-            mark_track_as_failed(db, track_id, f"Phase 1 error: {e}", "primary")
-        except Exception:
-            pass
-        _release_quota(_quota_user_id)
-        return
-    except Exception as e:
-        logger.error(f"Error marking track {track_id} as failed: {e}")
-        db.rollback()
-
+# (doublon mort de _run_analysis supprimé — la vraie définition est plus bas)
 
 def safe_commit(db: Session, context: str = ""):
     """Commit avec rollback automatique en cas d'erreur."""
@@ -4739,7 +4347,7 @@ def update_track_metadata(
                 original_track = db.query(Track).filter(Track.id == track_id).first()
                 if original_track:
                     original_genre = original_track.genre
-            except:
+            except Exception:
                 pass
             
             fields_to_share = {
@@ -6170,7 +5778,6 @@ def batch_analyze_tracks(
             background_tasks.add_task(
                 _run_full_analysis_bg, track.id, track.file_path,
                 getattr(current_user, 'use_stem_separation', False),
-                db,
             )
             results.append({"track_id": track.id, "status": "queued"})
 
@@ -6178,8 +5785,14 @@ def batch_analyze_tracks(
     return {"analyzed": len(results), "results": results}
 
 
-def _run_full_analysis_bg(track_id: int, file_path: str, use_stems: bool, db: Session):
-    """Background task for full analysis in batch mode."""
+def _run_full_analysis_bg(track_id: int, file_path: str, use_stems: bool):
+    """Background task for full analysis in batch mode.
+
+    🔴 Ouvre sa PROPRE session : celle du request est fermée par get_db()
+    dès la réponse envoyée — l'utiliser ici = comportement indéfini.
+    """
+    from app.database import SessionLocal
+    db = SessionLocal()
     try:
         data = analysis_svc.analyze_audio(file_path, use_stem_separation=use_stems, track_id=track_id)
         track = db.query(Track).filter(Track.id == track_id).first()
@@ -6199,6 +5812,8 @@ def _run_full_analysis_bg(track_id: int, file_path: str, use_stems: bool, db: Se
             track.status = TrackStatus.failed
             track.error_message = str(e)[:500]
             safe_commit(db)
+    finally:
+        db.close()
 
 
 # ── Track comparison (DJ compatibility) ───────────────────────────────────

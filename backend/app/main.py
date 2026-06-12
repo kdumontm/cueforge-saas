@@ -287,6 +287,46 @@ class ConfigManager:
             "cors_origins": self.cors_origins,
         }
 
+    # 🔴 Fix 2026-06-11 : la config était in-memory par worker → un PUT
+    # /admin/config ne touchait qu'1 worker sur 2 et tout était perdu au deploy.
+    # Persistance Redis + reload lazy (TTL 10s) pour propager entre workers.
+    _REDIS_KEY = "trackcue:admin_config"
+    _refresh_at: float = 0.0
+
+    def save(self) -> None:
+        try:
+            from app.services.cache_service import _get_redis
+            r = _get_redis()
+            if r is not None:
+                import json as _json
+                r.set(self._REDIS_KEY, _json.dumps(self.to_dict()))
+        except Exception as e:
+            logger.warning(f"admin_config: persistance Redis échouée: {e}")
+
+    def refresh(self, force: bool = False) -> None:
+        import time as _t
+        now = _t.monotonic()
+        if not force and now < self._refresh_at:
+            return
+        self._refresh_at = now + 10.0
+        try:
+            from app.services.cache_service import _get_redis
+            r = _get_redis()
+            if r is None:
+                return
+            raw = r.get(self._REDIS_KEY)
+            if not raw:
+                return
+            import json as _json
+            d = _json.loads(raw)
+            self.slow_endpoint_threshold_ms = d.get("slow_endpoint_threshold_ms", self.slow_endpoint_threshold_ms)
+            self.feature_flags.update(d.get("feature_flags") or {})
+            self.maintenance_mode = bool(d.get("maintenance_mode", self.maintenance_mode))
+            self.rate_limits.update(d.get("rate_limits") or {})
+            self.cors_origins = d.get("cors_origins") or self.cors_origins
+        except Exception as e:
+            logger.warning(f"admin_config: reload Redis échoué: {e}")
+
 
 # Global config
 _config = ConfigManager()
@@ -758,15 +798,26 @@ async def lifespan(app: FastAPI):
 
 settings = get_settings()
 
+# PERF 2026-06-11 : orjson sérialise le JSON 3-10× plus vite que stdlib —
+# gros gain sur les payloads /tracks (listes de centaines d'objets).
+# Fallback JSONResponse stdlib si orjson absent (sécurité install).
+try:
+    from fastapi.responses import ORJSONResponse as _DefaultResponse
+    import orjson  # noqa: F401 — vérifie que le package est bien là
+except ImportError:
+    from fastapi.responses import JSONResponse as _DefaultResponse
+
 app = FastAPI(
     title="TrackCue SaaS API",
     description="Audio analysis and cue point generation for DJs",
     version=settings.APP_VERSION,
     lifespan=lifespan,
     redirect_slashes=False,
+    default_response_class=_DefaultResponse,
 )
 
 
+@app.get("/health", include_in_schema=False)  # alias racine (conventions monitoring)
 @app.get("/api/v1/health")
 def health_check():
     """Health check — Railway l'utilise pour vérifier que le service est up.
@@ -1143,6 +1194,7 @@ async def get_admin_config(user: User = Depends(get_current_user)):
     """Configuration actuelle (admin only)."""
     if not getattr(user, 'is_admin', False):
         raise HTTPException(status_code=403, detail="Admin only")
+    _config.refresh()
     return _config.to_dict()
 
 
@@ -1166,6 +1218,7 @@ async def update_admin_config(
     if "cors_origins" in config_update:
         _config.cors_origins = config_update["cors_origins"]
 
+    _config.save()
     return _config.to_dict()
 
 
@@ -1187,6 +1240,7 @@ async def toggle_feature_flag(
     if not getattr(user, 'is_admin', False):
         raise HTTPException(status_code=403, detail="Admin only")
     _config.feature_flags[flag_name] = enabled
+    _config.save()
     return {flag_name: enabled}
 
 
@@ -1199,6 +1253,7 @@ async def toggle_maintenance_mode(
     if not getattr(user, 'is_admin', False):
         raise HTTPException(status_code=403, detail="Admin only")
     _config.maintenance_mode = enabled
+    _config.save()
     return {"maintenance_mode": enabled}
 
 

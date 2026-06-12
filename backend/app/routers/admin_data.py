@@ -720,7 +720,7 @@ async def health_db(
                 db.query(1).from_statement(text(f"SELECT 1 FROM \"{table_name}\"")).alias()
             ).scalar()
             tables_info.append({"table": table_name, "rows": count})
-        except:
+        except Exception:
             tables_info.append({"table": table_name, "rows": "error"})
 
     return {
@@ -748,7 +748,7 @@ async def list_tables(
                 db.query(1).from_statement(text(f"SELECT 1 FROM \"{table_name}\"")).alias()
             ).scalar() or 0
             tables.append({"name": table_name, "rows": count})
-        except:
+        except Exception:
             tables.append({"name": table_name, "rows": "error"})
 
     return {"tables": tables}
@@ -772,7 +772,13 @@ async def browse_table(
     # Use text() with bound params for limit/skip to prevent SQL injection
     try:
         result = db.execute(text(f"SELECT * FROM \"{table_name}\" LIMIT :lim OFFSET :off"), {"lim": limit, "off": skip})
-        rows = [dict(row) for row in result]
+        # 🔴 Sécurité : ne jamais renvoyer les secrets (hashes, tokens) au browser admin
+        _SENSITIVE_COLS = {"hashed_password", "password", "reset_token", "refresh_token",
+                           "email_verify_token", "api_key", "secret", "stripe_customer_id"}
+        rows = [
+            {k: ("•••masqué•••" if k in _SENSITIVE_COLS and v is not None else v) for k, v in dict(row).items()}
+            for row in result
+        ]
         total = db.execute(text(f"SELECT COUNT(*) FROM \"{table_name}\"")).scalar() or 0
         return {"total": total, "items": rows}
     except Exception as e:

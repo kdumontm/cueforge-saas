@@ -249,7 +249,7 @@ class CueAIEngine:
                     spectral_centroid = librosa.feature.spectral_centroid(y=y_window, sr=self.sr)
                     spectral_variance = np.var(spectral_centroid)
                     stability_bonus = 1.0 / (1.0 + spectral_variance / 1000)
-                except:
+                except Exception:
                     stability_bonus = 0.5
 
                 # Combine scores

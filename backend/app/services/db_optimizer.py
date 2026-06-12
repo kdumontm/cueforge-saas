@@ -526,7 +526,7 @@ class DatabaseOptimizer:
                 await self.db.execute(set_timeout)
                 config["status"] = "applied"
                 logger.info(f"Query timeout set to {timeout_seconds} seconds")
-            except:
+            except Exception:
                 config["note"] = "Requires superuser privilege"
 
             # Vérifier le timeout actuel

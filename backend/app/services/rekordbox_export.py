@@ -507,7 +507,7 @@ def _export_incremental_changes(tracks: List[Dict], last_export_time: float = No
                 from datetime import datetime
                 dt = datetime.fromisoformat(modified)
                 modified = dt.timestamp()
-            except:
+            except Exception:
                 modified = 0
 
         if modified > last_export_time:

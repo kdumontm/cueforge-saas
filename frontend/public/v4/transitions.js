@@ -537,7 +537,12 @@
     { ttl:'Pricing',     ctx:'Plans & abonnement',    href:'/v4/pricing.html',     icon:'💎' },
     { ttl:'Admin',       ctx:'Console admin',          href:'/v4/admin.html',       icon:'🛡️' },
     { ttl:'Billing',     ctx:'Facturation',           href:'/v4/billing.html',     icon:'💳' },
-    { ttl:'Onboarding',  ctx:'Guide démarrage',       href:'/v4/onboarding.html',  icon:'🚀' }
+    { ttl:'Onboarding',  ctx:'Guide démarrage',       href:'/v4/onboarding.html',  icon:'🚀' },
+    { ttl:'Compatible',  ctx:'Tracks compatibles',    href:'/v4/compatible.html',  icon:'🔗' },
+    { ttl:'Blog',        ctx:'Articles & nouveautés',  href:'/v4/blog.html',        icon:'📝' },
+    { ttl:'Docs',        ctx:'Documentation',          href:'/v4/docs.html',        icon:'📚' },
+    { ttl:'Changelog',   ctx:'Historique des versions', href:'/v4/changelog.html',  icon:'🗒️' },
+    { ttl:'Download',    ctx:'App desktop',            href:'/v4/download.html',    icon:'💻' }
   ];
   var PAL_ACTIONS = [
     { ttl:'Switch theme',     ctx:'Dark / Light',     run:function(e){ CF.themeWipe(e); }, icon:'🌗', kbd:'⌘⇧T' },

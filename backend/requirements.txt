@@ -70,3 +70,4 @@ msaf==0.1.80
 # Vague étape 7 : msaf pour détection structure musicale (alternative légère à allin1)
 # Best-effort : skip silencieux si install échoue sur Railway
 msaf==0.1.80
+orjson==3.10.15

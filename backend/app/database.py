@@ -53,8 +53,10 @@ def _create_engine_with_retry(url: str, max_retries: int = 5, delay: float = 3.0
             url,
             pool_pre_ping=False,
             pool_recycle=1800,
-            pool_size=25,             # PERF Wave16: 15 → 25
-            max_overflow=50,          # PERF Wave16: 30 → 50 (spike concurrent)
+            # 🔴 Fix 2026-06-11 : 25+50 × 2 workers = 150 conn max > ~100 acceptées
+            # par Railway PG → "too many connections" sous spike. 10+15 × 2 = 50 max.
+            pool_size=10,
+            max_overflow=15,
             pool_timeout=20,
             connect_args={"connect_timeout": 10},
             **common_kwargs,

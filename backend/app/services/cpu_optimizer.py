@@ -116,7 +116,7 @@ class CPUOptimizer:
             import cpuinfo
             info = cpuinfo.get_cpu_info()
             flags = set(info.get("flags", []))
-        except:
+        except Exception:
             flags = set()
 
         has_avx2 = "avx2" in flags
@@ -134,7 +134,7 @@ class CPUOptimizer:
         try:
             freq = psutil.cpu_freq()
             max_freq = freq.max / 1000.0 if freq else 0.0
-        except:
+        except Exception:
             max_freq = 0.0
 
         # Cache sizes (estimated)
@@ -379,7 +379,7 @@ class CPUOptimizer:
                     }
                     top_functions.append((func_name, cum_time))
                     total_time += cum_time
-                except:
+                except Exception:
                     pass
 
         # Identify bottleneck (longest running function)
