@@ -52,13 +52,27 @@ def _create_engine_with_retry(url: str, max_retries: int = 5, delay: float = 3.0
         engine = create_engine(
             url,
             pool_pre_ping=False,
-            pool_recycle=1800,
+            # PERF 2026-06-15 : recycle abaissé 1800→280s. Railway coupe les
+            # connexions inactives bien avant 30min ; on recycle avant que ça arrive.
+            pool_recycle=280,
             # 🔴 Fix 2026-06-11 : 25+50 × 2 workers = 150 conn max > ~100 acceptées
             # par Railway PG → "too many connections" sous spike. 10+15 × 2 = 50 max.
             pool_size=10,
             max_overflow=15,
             pool_timeout=20,
-            connect_args={"connect_timeout": 10},
+            connect_args={
+                "connect_timeout": 10,
+                # PERF 2026-06-15 : TCP keepalives (libpq). Empêche Railway de
+                # couper en silence les connexions Postgres inactives du pool.
+                # Sans ça, la 1ère requête après une période creuse tombe sur une
+                # connexion morte et stalle ~5s avant de se reconnecter (mesuré :
+                # 1er /tracks = 5,2s vs 0,38s à chaud). pre_ping reste OFF pour ne
+                # pas payer un aller-retour SELECT 1 sur CHAQUE requête.
+                "keepalives": 1,
+                "keepalives_idle": 30,
+                "keepalives_interval": 10,
+                "keepalives_count": 5,
+            },
             **common_kwargs,
         )
 
