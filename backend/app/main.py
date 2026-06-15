@@ -762,6 +762,35 @@ async def lifespan(app: FastAPI):
     prewarm_thread.start()
     app.state.prewarm_thread = prewarm_thread
 
+    # PERF 2026-06-15 : warm-up DB pool + ORM mappers en background.
+    # 1er /tracks mesuré à 5,6s vs 0,39s à chaud — le coût = ouverture de la
+    # 1ère connexion poolée + compilation des mappers SQLAlchemy (Track/User)
+    # au 1er usage (le /health ne fait qu'un SELECT 1, ça ne les amorce pas).
+    # On amorce au boot (thread daemon, non bloquant pour le healthcheck Railway)
+    # pour que le 1er vrai user ne paie plus ce cold start.
+    def _warmup_db_orm():
+        try:
+            from app.database import SessionLocal
+            from app.models.track import Track
+            from app.models.user import User
+            db = SessionLocal()
+            try:
+                db.query(Track).limit(1).all()
+                db.query(User).limit(1).all()
+                logger.info("[STARTUP] DB pool + ORM mappers warmed (Track/User)")
+            finally:
+                db.close()
+        except Exception as e:
+            logger.warning(f"[STARTUP] DB/ORM warmup failed (non-blocking): {e}")
+
+    warmup_db_thread = threading.Thread(
+        target=_warmup_db_orm,
+        daemon=True,
+        name="warmup_db_orm",
+    )
+    warmup_db_thread.start()
+    app.state.warmup_db_thread = warmup_db_thread
+
 
     logger.info("✅ TrackCue backend démarré.")
     yield
