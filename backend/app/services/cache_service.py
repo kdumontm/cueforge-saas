@@ -83,18 +83,7 @@ def _get_redis():
         }
         if REDIS_URL.startswith("rediss://"):
             kwargs["ssl_cert_reqs"] = None  # Upstash / TLS sans cert client
-        # PERF 2026-06-15 : pool à connexion UNIQUE (BlockingConnectionPool,
-        # max_connections=1). Le réseau interne Railway coupe les connexions Redis
-        # inactives ; avec un pool multi-connexions, le thread keepalive n'en garde
-        # qu'UNE chaude et la requête en piochait une autre (morte) → cold start ~5s.
-        # Avec UNE seule connexion partagée, le PING keepalive /20s la garde vivante
-        # et la requête réutilise exactement cette connexion → plus de cold start.
-        # Vu le trafic actuel, sérialiser les ops Redis (sub-ms à chaud) est négligeable ;
-        # timeout=2 évite tout deadlock si la connexion est occupée.
-        pool = redis.BlockingConnectionPool.from_url(
-            REDIS_URL, max_connections=1, timeout=2, **kwargs
-        )
-        _redis_client = redis.Redis(connection_pool=pool)
+        _redis_client = redis.from_url(REDIS_URL, **kwargs)
         _redis_client.ping()
         _redis_available = True
         logger.info("✅ Redis cache connecté (L2)")
@@ -196,17 +185,12 @@ def cache_get(namespace: str, identifier: str) -> Optional[dict]:
     r = _get_redis()
     if r:
         try:
-            import time as _t
-            _t0 = _t.monotonic()
             raw = r.get(key)
-            _dt = _t.monotonic() - _t0
-            if _dt > 0.5:
-                logger.warning(f"[REDIS-TIMING] cache_get {namespace} = {_dt:.2f}s")
             if raw:
                 logger.debug(f"Cache HIT (redis) {key}")
                 return json.loads(raw)
-        except Exception as _e:
-            logger.warning(f"[REDIS-TIMING] cache_get EXC: {_e}")
+        except Exception:
+            pass
     else:
         val = _memory_cache.get(key)
         if val is not None:
@@ -218,23 +202,14 @@ def cache_get(namespace: str, identifier: str) -> Optional[dict]:
 def cache_set(namespace: str, identifier: str, value: dict, ttl: int = DEFAULT_TTL):
     """Store a value in cache."""
     key = _make_key(namespace, identifier)
-    import time as _t
-    _tg = _t.monotonic()
     r = _get_redis()
-    _dtg = _t.monotonic() - _tg
-    if _dtg > 0.3:
-        logger.warning(f"[REDIS-TIMING] _get_redis (in set) = {_dtg:.2f}s")
     if r:
         try:
-            _t0 = _t.monotonic()
             r.setex(key, ttl, json.dumps(value, ensure_ascii=False, default=str))
-            _dt = _t.monotonic() - _t0
-            if _dt > 0.3:
-                logger.warning(f"[REDIS-TIMING] cache_set SETEX {namespace} = {_dt:.2f}s")
             logger.debug(f"Cache SET (redis) {key}")
             return
-        except Exception as _e:
-            logger.warning(f"[REDIS-TIMING] cache_set EXC: {_e}")
+        except Exception:
+            pass
     _memory_cache.set(key, value, ttl)
     logger.debug(f"Cache SET (memory) {key}")
 
@@ -428,23 +403,14 @@ def bump_user_version(user_id: int) -> None:
 def get_namespace_version(user_id: int, namespace: str) -> int:
     """Retourne la version courante du cache-key space (user, namespace)."""
     key = _make_key(f"nsv:{namespace}", str(user_id))
-    import time as _t
-    _tg = _t.monotonic()
     r = _get_redis()
-    _dtg = _t.monotonic() - _tg
-    if _dtg > 0.3:
-        logger.warning(f"[REDIS-TIMING] _get_redis (in nsv) = {_dtg:.2f}s")
     if r:
         try:
-            _t0 = _t.monotonic()
             v = r.get(key)
-            _dt = _t.monotonic() - _t0
-            if _dt > 0.5:
-                logger.warning(f"[REDIS-TIMING] nsv GET {namespace} = {_dt:.2f}s")
             if v:
                 return int(v)
-        except Exception as _e:
-            logger.warning(f"[REDIS-TIMING] nsv GET EXC: {_e}")
+        except Exception:
+            pass
     v = _memory_cache.get(key)
     return int(v) if v else 0
 

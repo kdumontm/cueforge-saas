@@ -393,10 +393,17 @@ def run_migrations(engine: Engine) -> None:
                 "CREATE INDEX IF NOT EXISTS ix_tracks_title_trgm ON tracks USING gin (title gin_trgm_ops) WHERE title IS NOT NULL",
                 "CREATE INDEX IF NOT EXISTS ix_tracks_artist_trgm ON tracks USING gin (artist gin_trgm_ops) WHERE artist IS NOT NULL",
                 "CREATE INDEX IF NOT EXISTS ix_tracks_filename_trgm ON tracks USING gin (original_filename gin_trgm_ops) WHERE original_filename IS NOT NULL",
-                # track_analysis : BPM/key/energy range filters (sur N tracks)
-                "CREATE INDEX IF NOT EXISTS ix_analysis_bpm ON track_analysis (bpm) WHERE bpm IS NOT NULL",
-                "CREATE INDEX IF NOT EXISTS ix_analysis_key ON track_analysis (key) WHERE key IS NOT NULL",
-                "CREATE INDEX IF NOT EXISTS ix_analysis_energy ON track_analysis (energy) WHERE energy IS NOT NULL",
+                # 🔴 FIX 2026-06-15 : index CAPITAL manquant. Le selectinload(Track.analysis)
+                # de /tracks fait WHERE track_analyses.track_id IN (...). Sans index sur
+                # track_id, c'est un seq scan → 3,6s À FROID (pages évincées du cache PG
+                # après inactivité) = LA cause du cold start de 5s sur /tracks.
+                "CREATE INDEX IF NOT EXISTS ix_track_analyses_track_id ON track_analyses (track_id)",
+                # track_analyses : BPM/key/energy range filters.
+                # 🔴 FIX 2026-06-15 : le nom de table était 'track_analysis' (singulier) —
+                # FAUX, la table est 'track_analyses'. Ces 3 index n'ont jamais été créés.
+                "CREATE INDEX IF NOT EXISTS ix_analysis_bpm ON track_analyses (bpm) WHERE bpm IS NOT NULL",
+                "CREATE INDEX IF NOT EXISTS ix_analysis_key ON track_analyses (key) WHERE key IS NOT NULL",
+                "CREATE INDEX IF NOT EXISTS ix_analysis_energy ON track_analyses (energy) WHERE energy IS NOT NULL",
                 # favorites : lookup par user
                 "CREATE INDEX IF NOT EXISTS ix_favorites_user ON favorites (user_id, created_at DESC)",
                 "CREATE INDEX IF NOT EXISTS ix_favorites_user_track ON favorites (user_id, track_id)",
