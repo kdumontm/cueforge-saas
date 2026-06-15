@@ -416,13 +416,17 @@ def reorder_set_tracks(
     current_user: User = Depends(get_current_user),
 ):
     _get_user_set(set_id, current_user, db)
-    for item in items:
-        entry = db.query(DJSetTrack).filter(
-            DJSetTrack.set_id == set_id, DJSetTrack.track_id == item.track_id,
-        ).first()
-        if entry:
-            entry.position = item.position
-    db.commit()
+    # PERF 2026-06-15 : 1 requête groupée au lieu de N (N+1). On charge toutes les
+    # entrées concernées d'un coup, puis on applique les positions en mémoire.
+    pos_by_track = {item.track_id: item.position for item in items}
+    if pos_by_track:
+        entries = db.query(DJSetTrack).filter(
+            DJSetTrack.set_id == set_id,
+            DJSetTrack.track_id.in_(list(pos_by_track.keys())),
+        ).all()
+        for entry in entries:
+            entry.position = pos_by_track[entry.track_id]
+        db.commit()
     return {"status": "ok"}
 
 

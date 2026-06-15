@@ -104,12 +104,12 @@ async def get_next_track_recommendation(
     v4 QA 2026-04-21 : remplace le mock score par scoring Camelot multi-facteur
     (harmonic + BPM + energy) et enrichit la réponse avec bpm/key/camelot.
     """
-    from sqlalchemy.orm import selectinload
+    from sqlalchemy.orm import selectinload, load_only
     from app.services.camelot import transition_score, key_to_camelot
     try:
         current_track = (
             db.query(Track)
-            .options(selectinload(Track.analysis))
+            .options(selectinload(Track.analysis).load_only(TrackAnalysis.bpm, TrackAnalysis.key))
             .filter(Track.id == request.current_track_id)
             .first()
         )
@@ -121,7 +121,9 @@ async def get_next_track_recommendation(
         ref_bpm = current_track.analysis.bpm if current_track.analysis and current_track.analysis.bpm else 120
         candidates = (
             db.query(Track)
-            .options(selectinload(Track.analysis))
+            # PERF 2026-06-15 : load_only — le scoring ne lit que bpm/key (pas les
+            # ~40 colonnes/blobs) sur 50 candidats. Cf. même fix sur mix.py + /tracks.
+            .options(selectinload(Track.analysis).load_only(TrackAnalysis.bpm, TrackAnalysis.key))
             .join(TrackAnalysis, Track.id == TrackAnalysis.track_id)
             .filter(
                 Track.user_id == current_user.id,
