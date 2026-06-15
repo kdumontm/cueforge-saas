@@ -19,6 +19,16 @@ logger = logging.getLogger(__name__)
 
 _settings = get_settings()
 REDIS_URL = _settings.REDIS_URL or ""
+
+# PERF 2026-06-15 : options TCP keepalive pour le client Redis. Construites de
+# façon défensive — certaines constantes (TCP_KEEPIDLE) n'existent pas sur macOS,
+# on n'ajoute que celles présentes sur la plateforme (Linux/Railway les a toutes).
+import socket as _socket
+_TCP_KEEPALIVE_OPTS = {}
+for _name, _val in (("TCP_KEEPIDLE", 15), ("TCP_KEEPINTVL", 5), ("TCP_KEEPCNT", 3)):
+    _opt = getattr(_socket, _name, None)
+    if _opt is not None:
+        _TCP_KEEPALIVE_OPTS[_opt] = _val
 DEFAULT_TTL = 86400 * 7  # 7 jours par défaut
 MAX_MEMORY_ENTRIES = 2000  # max entries en mémoire (fallback)
 
@@ -57,7 +67,12 @@ def _get_redis():
             # au lieu de staller sur un socket mort. C'est le vrai fix du cold start.
             "health_check_interval": 30,
             # TCP keepalive : l'OS garde la connexion vivante côté réseau Railway.
+            # Les OPTIONS sont indispensables — sans elles le défaut OS (~2h) ne
+            # sert à rien. On sonde après 15s d'inactivité, toutes les 5s, 3 fois.
+            # Ça garde TOUTES les connexions du pool actives (pas juste celle que
+            # le thread keepalive PING), au niveau OS.
             "socket_keepalive": True,
+            "socket_keepalive_options": _TCP_KEEPALIVE_OPTS,
             # retry_on_timeout : un timeout ponctuel retry au lieu de remonter direct.
             "retry_on_timeout": True,
         }
