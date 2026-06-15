@@ -60,8 +60,12 @@ def _get_redis():
             # start de 5,2s sur /tracks : après une période creuse, Railway coupe
             # la connexion Redis ; le 1er cache_get tombait sur un socket mort et
             # attendait les 5s de timeout avant de reconnecter.
-            "socket_timeout": 2,
-            "socket_connect_timeout": 2,
+            # 1s (pas 2) : sur le réseau interne Railway une connexion inactive
+            # est coupée ; list_tracks fait 2 ops Redis (get_namespace_version +
+            # cache_get) donc 2 connexions mortes possibles. À 1s chacune, la
+            # pénalité cold est bornée à ~2s max au lieu de ~5s.
+            "socket_timeout": 1,
+            "socket_connect_timeout": 1,
             # health_check_interval : redis-py PING les connexions inactives
             # depuis >30s AVANT de les utiliser → reconnecte de façon transparente
             # au lieu de staller sur un socket mort. C'est le vrai fix du cold start.
@@ -73,8 +77,9 @@ def _get_redis():
             # le thread keepalive PING), au niveau OS.
             "socket_keepalive": True,
             "socket_keepalive_options": _TCP_KEEPALIVE_OPTS,
-            # retry_on_timeout : un timeout ponctuel retry au lieu de remonter direct.
-            "retry_on_timeout": True,
+            # retry_on_timeout retiré : il DOUBLAIT la pénalité cold (timeout puis
+            # retry+reconnect). On préfère échouer vite et laisser health_check_interval
+            # reconnecter de façon transparente au checkout suivant.
         }
         if REDIS_URL.startswith("rediss://"):
             kwargs["ssl_cert_reqs"] = None  # Upstash / TLS sans cert client
