@@ -11,7 +11,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from sqlalchemy import func
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, selectinload, load_only
 from pydantic import BaseModel
 
 from app.database import get_db
@@ -3821,8 +3821,24 @@ def list_tracks(
 
     # ⚡ NOW add eager loading to the same filtered query
     # PERF #1.3: plus de selectinload(Track.cue_points) — on compte via une agrégation.
+    # 🔴 FIX 2026-06-15 : load_only sur l'analyse. TrackAnalysis a ~40 colonnes JSON
+    # lourdes (waveform_peaks_high 50k pts, beatgrid, spectral, deep analysis...).
+    # Le selectinload chargeait TOUT pour 200 tracks → SELECT track_analyses.* qui
+    # lisait des Mo de données TOAST depuis le disque = 3,6s À FROID (= la vraie
+    # cause du cold start de 5s sur /tracks). On ne charge que les ~23 colonnes
+    # scalaires que _track_to_dict_fast sérialise ; tout le reste est déféré.
     q = q.options(
-        selectinload(Track.analysis),
+        selectinload(Track.analysis).load_only(
+            TrackAnalysis.bpm, TrackAnalysis.bpm_confidence, TrackAnalysis.key,
+            TrackAnalysis.energy, TrackAnalysis.duration_ms, TrackAnalysis.key_confidence,
+            TrackAnalysis.loudness_db, TrackAnalysis.loudness_lufs, TrackAnalysis.vocal_percentage,
+            TrackAnalysis.mood, TrackAnalysis.danceability, TrackAnalysis.bpm_stable,
+            TrackAnalysis.stereo_width_label, TrackAnalysis.brightness_label,
+            TrackAnalysis.has_clipping, TrackAnalysis.true_peak_db,
+            TrackAnalysis.structural_summary, TrackAnalysis.audio_quality_score,
+            TrackAnalysis.audio_quality_grade, TrackAnalysis.encoding_quality,
+            TrackAnalysis.is_upscaled, TrackAnalysis.analyzed_at,
+        ),
         selectinload(Track.track_tags),
     )
 
