@@ -83,7 +83,18 @@ def _get_redis():
         }
         if REDIS_URL.startswith("rediss://"):
             kwargs["ssl_cert_reqs"] = None  # Upstash / TLS sans cert client
-        _redis_client = redis.from_url(REDIS_URL, **kwargs)
+        # PERF 2026-06-15 : pool à connexion UNIQUE (BlockingConnectionPool,
+        # max_connections=1). Le réseau interne Railway coupe les connexions Redis
+        # inactives ; avec un pool multi-connexions, le thread keepalive n'en garde
+        # qu'UNE chaude et la requête en piochait une autre (morte) → cold start ~5s.
+        # Avec UNE seule connexion partagée, le PING keepalive /20s la garde vivante
+        # et la requête réutilise exactement cette connexion → plus de cold start.
+        # Vu le trafic actuel, sérialiser les ops Redis (sub-ms à chaud) est négligeable ;
+        # timeout=2 évite tout deadlock si la connexion est occupée.
+        pool = redis.BlockingConnectionPool.from_url(
+            REDIS_URL, max_connections=1, timeout=2, **kwargs
+        )
+        _redis_client = redis.Redis(connection_pool=pool)
         _redis_client.ping()
         _redis_available = True
         logger.info("✅ Redis cache connecté (L2)")
