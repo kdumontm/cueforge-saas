@@ -46,8 +46,20 @@ def _get_redis():
         # redis.from_url lève TypeError (AbstractConnection ne connaît pas ce kwarg).
         kwargs = {
             "decode_responses": True,
-            "socket_timeout": 5,
-            "socket_connect_timeout": 5,
+            # PERF 2026-06-15 : socket_timeout 5s→2s. C'était LA cause du cold
+            # start de 5,2s sur /tracks : après une période creuse, Railway coupe
+            # la connexion Redis ; le 1er cache_get tombait sur un socket mort et
+            # attendait les 5s de timeout avant de reconnecter.
+            "socket_timeout": 2,
+            "socket_connect_timeout": 2,
+            # health_check_interval : redis-py PING les connexions inactives
+            # depuis >30s AVANT de les utiliser → reconnecte de façon transparente
+            # au lieu de staller sur un socket mort. C'est le vrai fix du cold start.
+            "health_check_interval": 30,
+            # TCP keepalive : l'OS garde la connexion vivante côté réseau Railway.
+            "socket_keepalive": True,
+            # retry_on_timeout : un timeout ponctuel retry au lieu de remonter direct.
+            "retry_on_timeout": True,
         }
         if REDIS_URL.startswith("rediss://"):
             kwargs["ssl_cert_reqs"] = None  # Upstash / TLS sans cert client
