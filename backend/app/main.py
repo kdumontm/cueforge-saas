@@ -778,17 +778,6 @@ async def lifespan(app: FastAPI):
                 db.query(Track).limit(1).all()
                 db.query(User).limit(1).all()
                 logger.info("[STARTUP] DB pool + ORM mappers warmed (Track/User)")
-                # PERF PROBE 2026-06-15 : RTT brut DB (SELECT 1) pour distinguer
-                # latence réseau pure vs coût requête sur le ~140ms/requête observé.
-                import time as _t
-                from sqlalchemy import text as _text
-                _samples = []
-                for _ in range(5):
-                    _t0 = _t.monotonic()
-                    db.execute(_text("SELECT 1"))
-                    _samples.append((_t.monotonic() - _t0) * 1000)
-                logger.info("[DB-RTT-PROBE] SELECT 1 x5 (ms): %s | min=%.1f avg=%.1f" % (
-                    ", ".join("%.1f" % x for x in _samples), min(_samples), sum(_samples)/len(_samples)))
             finally:
                 db.close()
         except Exception as e:

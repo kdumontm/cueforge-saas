@@ -3824,10 +3824,12 @@ def list_tracks(
     q = db.query(Track).filter(Track.user_id == current_user.id)
     q = _apply_track_filters(q, genre, artist, rating_min, search, bpm_min, bpm_max, key, energy_min, energy_max)
 
-    # 🔴 Fix QA 2026-04-21 : l'ancien `select_entity_from(q.statement)` produisait
-    # un SQL cassé (500). On utilise q.with_entities() qui garde les filtres mais
-    # change la SELECT pour un COUNT DISTINCT — évite le sur-comptage sur outerjoin.
-    total = q.with_entities(func.count(func.distinct(Track.id))).scalar() or 0
+    # 🔴 Fix QA 2026-04-21 : q.with_entities() garde les filtres mais change la SELECT
+    # pour un COUNT DISTINCT — évite le sur-comptage sur outerjoin.
+    # PERF 2026-06-15 : on PRÉPARE la requête count sans l'exécuter. On l'exécute
+    # seulement si la page ne se suffit pas (cf. plus bas) — économise 1 round-trip
+    # DB (~140ms) sur le cas courant (petite biblio / dernière page).
+    count_query = q.with_entities(func.count(func.distinct(Track.id)))
 
     # ⚡ NOW add eager loading to the same filtered query
     # PERF #1.3: plus de selectinload(Track.cue_points) — on compte via une agrégation.
@@ -3892,6 +3894,14 @@ def list_tracks(
     else:
         offset = (page - 1) * limit
         tracks = q.offset(offset).limit(limit).all()
+
+    # PERF 2026-06-15 : éviter le round-trip COUNT (~140ms) quand la page se suffit.
+    # page 1 sans cursor + moins de lignes que la limite ⇒ il n'y a pas d'autre page,
+    # donc total = nombre de lignes. Sinon (page pleine, page>1, cursor) on compte.
+    if page == 1 and cursor is None and len(tracks) < limit:
+        total = len(tracks)
+    else:
+        total = count_query.scalar() or 0
 
     # PERF #1.3: cue_points_count via agrégation (1 query groupée au lieu de selectinload)
     from app.models.track import CuePoint
