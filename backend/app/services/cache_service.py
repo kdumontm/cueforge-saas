@@ -218,14 +218,23 @@ def cache_get(namespace: str, identifier: str) -> Optional[dict]:
 def cache_set(namespace: str, identifier: str, value: dict, ttl: int = DEFAULT_TTL):
     """Store a value in cache."""
     key = _make_key(namespace, identifier)
+    import time as _t
+    _tg = _t.monotonic()
     r = _get_redis()
+    _dtg = _t.monotonic() - _tg
+    if _dtg > 0.3:
+        logger.warning(f"[REDIS-TIMING] _get_redis (in set) = {_dtg:.2f}s")
     if r:
         try:
+            _t0 = _t.monotonic()
             r.setex(key, ttl, json.dumps(value, ensure_ascii=False, default=str))
+            _dt = _t.monotonic() - _t0
+            if _dt > 0.3:
+                logger.warning(f"[REDIS-TIMING] cache_set SETEX {namespace} = {_dt:.2f}s")
             logger.debug(f"Cache SET (redis) {key}")
             return
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.warning(f"[REDIS-TIMING] cache_set EXC: {_e}")
     _memory_cache.set(key, value, ttl)
     logger.debug(f"Cache SET (memory) {key}")
 
@@ -419,10 +428,14 @@ def bump_user_version(user_id: int) -> None:
 def get_namespace_version(user_id: int, namespace: str) -> int:
     """Retourne la version courante du cache-key space (user, namespace)."""
     key = _make_key(f"nsv:{namespace}", str(user_id))
+    import time as _t
+    _tg = _t.monotonic()
     r = _get_redis()
+    _dtg = _t.monotonic() - _tg
+    if _dtg > 0.3:
+        logger.warning(f"[REDIS-TIMING] _get_redis (in nsv) = {_dtg:.2f}s")
     if r:
         try:
-            import time as _t
             _t0 = _t.monotonic()
             v = r.get(key)
             _dt = _t.monotonic() - _t0
