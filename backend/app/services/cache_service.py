@@ -196,12 +196,17 @@ def cache_get(namespace: str, identifier: str) -> Optional[dict]:
     r = _get_redis()
     if r:
         try:
+            import time as _t
+            _t0 = _t.monotonic()
             raw = r.get(key)
+            _dt = _t.monotonic() - _t0
+            if _dt > 0.5:
+                logger.warning(f"[REDIS-TIMING] cache_get {namespace} = {_dt:.2f}s")
             if raw:
                 logger.debug(f"Cache HIT (redis) {key}")
                 return json.loads(raw)
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.warning(f"[REDIS-TIMING] cache_get EXC: {_e}")
     else:
         val = _memory_cache.get(key)
         if val is not None:
@@ -417,11 +422,16 @@ def get_namespace_version(user_id: int, namespace: str) -> int:
     r = _get_redis()
     if r:
         try:
+            import time as _t
+            _t0 = _t.monotonic()
             v = r.get(key)
+            _dt = _t.monotonic() - _t0
+            if _dt > 0.5:
+                logger.warning(f"[REDIS-TIMING] nsv GET {namespace} = {_dt:.2f}s")
             if v:
                 return int(v)
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.warning(f"[REDIS-TIMING] nsv GET EXC: {_e}")
     v = _memory_cache.get(key)
     return int(v) if v else 0
 

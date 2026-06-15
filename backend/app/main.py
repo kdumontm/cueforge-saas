@@ -803,7 +803,7 @@ async def lifespan(app: FastAPI):
                 redis_keepalive_ping()
             except Exception:
                 pass
-            _t.sleep(20)
+            _t.sleep(5)  # PERF 2026-06-15 : 5s (pas 20) — Railway peut couper la connexion Redis avant 20s
 
     try:
         redis_ka_thread = threading.Thread(
