@@ -11,7 +11,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from sqlalchemy import func
-from sqlalchemy.orm import Session, selectinload, load_only
+from sqlalchemy.orm import Session, selectinload, load_only, joinedload
 from pydantic import BaseModel
 
 from app.database import get_db
@@ -3837,8 +3837,13 @@ def list_tracks(
     # lisait des Mo de données TOAST depuis le disque = 3,6s À FROID (= la vraie
     # cause du cold start de 5s sur /tracks). On ne charge que les ~23 colonnes
     # scalaires que _track_to_dict_fast sérialise ; tout le reste est déféré.
+    # PERF 2026-06-15 : joinedload (pas selectinload) pour l'analyse. analysis est
+    # one-to-one (uselist=False) → LEFT JOIN fusionné dans la requête principale =
+    # -1 round-trip DB (~140ms gagnés sur Railway). Pas de multiplication de lignes
+    # donc LIMIT reste correct. track_tags reste en selectinload (collection : un
+    # joinedload multiplierait les lignes et casserait le LIMIT).
     q = q.options(
-        selectinload(Track.analysis).load_only(
+        joinedload(Track.analysis).load_only(
             TrackAnalysis.bpm, TrackAnalysis.bpm_confidence, TrackAnalysis.key,
             TrackAnalysis.energy, TrackAnalysis.duration_ms, TrackAnalysis.key_confidence,
             TrackAnalysis.loudness_db, TrackAnalysis.loudness_lufs, TrackAnalysis.vocal_percentage,
