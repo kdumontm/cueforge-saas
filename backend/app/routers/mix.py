@@ -227,7 +227,9 @@ async def suggest_next_track(
     try:
         current_track = (
             db.query(Track)
-            .options(selectinload(Track.analysis))
+            # PERF 2026-06-15 : load_only — suggest-next ne lit que bpm/key (scoring
+            # transition). Évite de charger les ~40 colonnes (blobs) des ~50 candidats.
+            .options(selectinload(Track.analysis).load_only(TrackAnalysis.bpm, TrackAnalysis.key))
             .filter(Track.id == request.current_track_id)
             .first()
         )
@@ -241,7 +243,9 @@ async def suggest_next_track(
         ref_bpm = current_track.analysis.bpm if current_track.analysis and current_track.analysis.bpm else None
         candidates_q = (
             db.query(Track)
-            .options(selectinload(Track.analysis))
+            # PERF 2026-06-15 : load_only — suggest-next ne lit que bpm/key (scoring
+            # transition). Évite de charger les ~40 colonnes (blobs) des ~50 candidats.
+            .options(selectinload(Track.analysis).load_only(TrackAnalysis.bpm, TrackAnalysis.key))
             .join(TrackAnalysis, TrackAnalysis.track_id == Track.id)
             .filter(
                 Track.user_id == current_user.id,

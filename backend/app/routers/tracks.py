@@ -3132,7 +3132,12 @@ async def stream_track_status(
             poll_db = SessionLocal()
             try:
                 t = poll_db.query(Track).filter(Track.id == track_id).options(
-                    selectinload(Track.analysis),
+                    # PERF 2026-06-15 : load_only — loop SSE /1s, n'utilise que
+                    # bpm/key/energy/duration_ms. Évite de charger les blobs chaque seconde.
+                    selectinload(Track.analysis).load_only(
+                        TrackAnalysis.bpm, TrackAnalysis.key, TrackAnalysis.energy,
+                        TrackAnalysis.duration_ms,
+                    ),
                 ).first()
                 if not t:
                     yield f"data: {_json.dumps({'status': 'not_found'})}\n\n"
@@ -3237,7 +3242,12 @@ async def stream_all_track_statuses(
             poll_db = SessionLocal()
             try:
                 tracks = poll_db.query(Track).filter(Track.id.in_(ids)).options(
-                    selectinload(Track.analysis),
+                    # PERF 2026-06-15 : load_only — ce loop SSE poll /1s et n'utilise
+                    # que bpm/key/energy. Avant il chargeait les ~40 colonnes (blobs
+                    # waveform/spectral inclus) chaque seconde pour toutes les tracks.
+                    selectinload(Track.analysis).load_only(
+                        TrackAnalysis.bpm, TrackAnalysis.key, TrackAnalysis.energy,
+                    ),
                 ).all()
 
                 # Check if any track status changed
