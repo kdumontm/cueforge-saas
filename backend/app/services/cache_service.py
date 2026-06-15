@@ -75,6 +75,24 @@ def _get_redis():
         return None
 
 
+def redis_keepalive_ping() -> bool:
+    """PERF 2026-06-15 : PING Redis pour garder la connexion du pool active.
+    Appelé périodiquement par un thread daemon (lifespan) toutes les ~20s.
+    Empêche Railway de couper la connexion Redis pour cause d'inactivité —
+    c'était la cause du cold start de ~5s sur /tracks (1er cache_get après une
+    période creuse stallait sur un socket mort jusqu'au socket_timeout).
+    Retourne True si le PING a réussi, False sinon (non bloquant)."""
+    try:
+        client = _get_redis()
+        if client is None:
+            return False
+        client.ping()
+        return True
+    except Exception as e:
+        logger.debug(f"[REDIS] keepalive ping failed (non-blocking): {e}")
+        return False
+
+
 def get_redis_client():
     """
     Shared Redis client accessor for modules other than cache_service

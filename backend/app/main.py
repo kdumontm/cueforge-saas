@@ -791,6 +791,32 @@ async def lifespan(app: FastAPI):
     warmup_db_thread.start()
     app.state.warmup_db_thread = warmup_db_thread
 
+    # PERF 2026-06-15 : keepalive Redis. Railway coupe la connexion Redis inactive,
+    # ce qui faisait staller le 1er cache_get de /tracks ~5s (socket mort). Un PING
+    # toutes les 20s garde la connexion du pool vivante côté Railway → plus de cold
+    # start cache. Thread daemon, non bloquant.
+    def _redis_keepalive_loop():
+        import time as _t
+        from app.services.cache_service import redis_keepalive_ping
+        while True:
+            try:
+                redis_keepalive_ping()
+            except Exception:
+                pass
+            _t.sleep(20)
+
+    try:
+        redis_ka_thread = threading.Thread(
+            target=_redis_keepalive_loop,
+            daemon=True,
+            name="redis_keepalive",
+        )
+        redis_ka_thread.start()
+        app.state.redis_ka_thread = redis_ka_thread
+        logger.info("✅ Redis keepalive thread started (PING /20s)")
+    except Exception as e:
+        logger.warning(f"Redis keepalive thread failed to start (non-blocking): {e}")
+
 
     logger.info("✅ TrackCue backend démarré.")
     yield
